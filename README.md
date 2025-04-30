@@ -2,8 +2,7 @@
 <img src="https://rishavanand.github.io/static/images/greetings.gif" align="center" style="width: 100%" />
 </div>  
   
-
-### <div align="center">### Hi, I'm Einstein — full-stack developer & tech visionary 🚀
+<div align="center"> Hi, I'm Einstein — full-stack developer & tech visionary 🚀
 
 - 
 🔭 Atualmente trabalhando em projetos que unem automação, acessibilidade e inovação
@@ -18,7 +17,7 @@
 ⚡ Curiosidade: comecei a programar aos 10 anos e nunca mais parei</div>  
   
 
-- 🔭 I’m currently working on [Github Profilinator](https://github.com/rishavanand/github-profilinator)  
+- 🔭 I’m currently working on [Github Profilinator]  
   
 
 - 🌱 I’m currently learning Hyperledger and Kubernetes  
