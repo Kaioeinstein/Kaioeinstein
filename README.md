@@ -3,7 +3,19 @@
 </div>  
   
 
-### <div align="center">I'm Rishav, a full-time full-stack freelance developer 👨‍💻 working remotely since 2013 🚀</div>  
+### <div align="center">### Hi, I'm Einstein — full-stack developer & tech visionary 🚀
+
+- 
+🔭 Atualmente trabalhando em projetos que unem automação, acessibilidade e inovação
+
+- 
+🌱 Estudando Inteligência Artificial, automações web e Web3
+
+- 
+❓ Me pergunte sobre JavaScript, React, PHP, SQL e como transformar ideias em produtos reais
+
+- 
+⚡ Curiosidade: comecei a programar aos 10 anos e nunca mais parei</div>  
   
 
 - 🔭 I’m currently working on [Github Profilinator](https://github.com/rishavanand/github-profilinator)  
