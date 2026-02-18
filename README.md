@@ -2,7 +2,7 @@
 <img src="https://rishavanand.github.io/static/images/greetings.gif" align="center" style="width: 100%" />
 </div>  
   
-<div align="center"> Hi, I'm Einstein — full-stack developer & tech visionary 🚀
+<div align="center"> Hi, I'm Kaio Geovanne — full-stack developer & tech visionary 🚀
 
 - 
 🔭 Atualmente trabalhando em projetos que unem automação, acessibilidade e inovação
