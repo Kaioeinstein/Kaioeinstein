@@ -16,6 +16,8 @@ Abra `index.html` e edite só o bloco `CONFIG` no começo do `<script>`:
 | `historia` | Parágrafos da história |
 | `valores` | Botões de valor rápido |
 | `presentes` | Lista de presentes (cada um preenche o valor no PIX) |
+| `agradecimento` | Mensagem que aparece (com confete 🎉) quando a pessoa clica em **"Já fiz o PIX!"** |
+| `whatsappPapai` | Celular do papai (ex.: `5511999999999`) para o botão "Mandar recado pro papai". Se ficar vazio, a pessoa escolhe o contato |
 | `recados` | Recadinhos dos amigos |
 
 > ⚠️ Depois de trocar a chave, faça um PIX de teste de R$ 1 lendo o QR Code com o app do banco para garantir que está tudo certo.
@@ -26,3 +28,5 @@ Abra `index.html` e edite só o bloco `CONFIG` no começo do `<script>`:
 - **Netlify Drop / Vercel:** arraste a pasta `vaquinha` em https://app.netlify.com/drop.
 
 Depois é só usar o botão **Compartilhar no WhatsApp** do próprio site.
+
+> ℹ️ O PIX vai direto para a conta do papai, então o site não tem como saber sozinho que o pagamento caiu. A mensagem de agradecimento aparece quando a pessoa clica em **"Já fiz o PIX!"**, e o valor arrecadado é atualizado à mão no `CONFIG`.

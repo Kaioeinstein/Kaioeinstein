@@ -106,6 +106,20 @@
     padding:.8em 1.4em;border-radius:999px;font-weight:800;transition:transform .3s,opacity .3s;z-index:9;opacity:0;pointer-events:none}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
   .muted{color:var(--muted)}
+  .paid-btn{width:100%;margin-top:18px;background:var(--ok);color:#fff;box-shadow:0 6px 18px -6px var(--ok)}
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;z-index:20;
+    background:rgba(20,16,24,.55);backdrop-filter:blur(3px)}
+  .modal.open{display:flex}
+  .modal .box{background:var(--card);border-radius:28px;max-width:440px;width:100%;padding:32px 24px;text-align:center;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.5);animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(.7);opacity:0}}
+  .modal .big{font-size:4rem;line-height:1;display:inline-block;animation:float 2.4s ease-in-out infinite}
+  .modal h2{font-size:1.9rem;margin:.4em 0 .3em}
+  .modal p{color:var(--muted);margin:0 0 1em}
+  .modal input{width:100%;border:2px solid var(--line);border-radius:14px;padding:.7em 1em;background:var(--bg);color:var(--ink);
+    font:600 1rem Nunito,sans-serif;margin-bottom:12px}
+  .modal .actions{display:flex;flex-direction:column;gap:10px}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:30}
 </style>
 </head>
 <body>
@@ -169,6 +183,7 @@
           <input id="pix-code" readonly aria-label="Código PIX copia e cola">
           <button class="btn btn-primary" id="copy-code">Copiar</button>
         </div>
+        <button class="btn paid-btn" id="paid">✅ Já fiz o PIX!</button>
       </div>
     </div>
   </section>
@@ -187,6 +202,20 @@
 </footer>
 
 <div class="toast" id="toast">Copiado! ✅</div>
+
+<div class="modal" id="thanks" role="dialog" aria-modal="true" aria-labelledby="thanks-title">
+  <div class="box">
+    <div class="big">🥳</div>
+    <h2 id="thanks-title">Muito obrigado!</h2>
+    <p id="thanks-text"></p>
+    <input id="thanks-name" placeholder="Seu nome (opcional)" autocomplete="name">
+    <div class="actions">
+      <button class="btn btn-wa" id="thanks-wa">💬 Mandar recado pro papai</button>
+      <button class="btn btn-ghost" id="thanks-close">Fechar</button>
+    </div>
+  </div>
+</div>
+<canvas id="confetti"></canvas>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -229,6 +258,10 @@ const CONFIG = {
     { ico: "🚼", nome: "Carrinho",          valor: 800, obs: "Pode ser uma parte!" },
     { ico: "🧸", nome: "Pelúcia",           valor: 40,  obs: "Primeiro amiguinho" },
   ],
+
+  // Mensagem de agradecimento exibida quando a pessoa clica em "Já fiz o PIX!"
+  agradecimento: "Sua ajuda vai fazer muita diferença na chegada do bebê. A família inteira agradece de coração! 💛",
+  whatsappPapai: "",                  // celular do papai com DDI+DDD, só números (ex: "5511999999999"). Vazio = escolhe o contato
 
   recados: [
     { texto: "Parabéns, papai! Vai ser o melhor pai do mundo!", autor: "Amigos da firma" },
@@ -298,6 +331,7 @@ function pixPayload(valor) {
 
 let qr;
 function renderPix(valor, rotulo) {
+  valorAtual = valor;
   const code = pixPayload(valor);
   $("pix-code").value = code;
   $("selected").textContent = valor > 0 ? `Valor selecionado: ${brl(valor)}${rotulo ? " — " + rotulo : ""}` : "Valor livre (você escolhe no app do banco)";
@@ -360,6 +394,49 @@ $("share-wa").onclick = () => {
   if (navigator.share) navigator.share({ title: document.title, text: txt }).catch(() => {});
   else window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
 };
+
+// ---------- Agradecimento ----------
+let valorAtual = 0;
+function abrirAgradecimento() {
+  $("thanks-text").textContent = (valorAtual > 0 ? `Valeu demais pelos ${brl(valorAtual)}! ` : "") + CONFIG.agradecimento;
+  $("thanks").classList.add("open");
+  try { $("thanks-name").value = localStorage.getItem("vaquinha-nome") || ""; } catch {}
+  confete();
+}
+function fecharAgradecimento() { $("thanks").classList.remove("open"); }
+$("paid").onclick = abrirAgradecimento;
+$("thanks-close").onclick = fecharAgradecimento;
+$("thanks").addEventListener("click", (e) => { if (e.target.id === "thanks") fecharAgradecimento(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharAgradecimento(); });
+$("thanks-wa").onclick = () => {
+  const nome = $("thanks-name").value.trim();
+  try { localStorage.setItem("vaquinha-nome", nome); } catch {}
+  const txt = `Oi, ${CONFIG.papai}! ${nome ? "Aqui é " + nome + ". " : ""}Acabei de mandar ${valorAtual > 0 ? brl(valorAtual) : "um PIX"} pra vaquinha do bebê 👶💛 Parabéns, papai!`;
+  window.open(`https://wa.me/${CONFIG.whatsappPapai.replace(/\D/g, "")}?text=` + encodeURIComponent(txt), "_blank");
+};
+
+function confete() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const c = $("confetti"), ctx = c.getContext("2d");
+  c.width = innerWidth; c.height = innerHeight;
+  const cores = ["#e88b6b", "#7fb7be", "#f6c85f", "#9fd8a8", "#f4a7c0"];
+  const ps = Array.from({ length: 160 }, () => ({
+    x: Math.random() * c.width, y: -20 - Math.random() * c.height * 0.5,
+    vx: (Math.random() - 0.5) * 3, vy: 2 + Math.random() * 4,
+    r: 4 + Math.random() * 6, a: Math.random() * 6, va: (Math.random() - 0.5) * 0.3,
+    cor: cores[(Math.random() * cores.length) | 0],
+  }));
+  const fim = performance.now() + 3500;
+  (function frame(t) {
+    ctx.clearRect(0, 0, c.width, c.height);
+    ps.forEach((p) => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.a += p.va;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a);
+      ctx.fillStyle = p.cor; ctx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); ctx.restore();
+    });
+    if (t < fim) requestAnimationFrame(frame); else ctx.clearRect(0, 0, c.width, c.height);
+  })(performance.now());
+}
 
 renderPix(CONFIG.valores[1] || 0);
 setActive(amounts.children[1]);
