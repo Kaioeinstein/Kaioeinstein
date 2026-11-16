@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaquinha do Bebê</title>
+<meta name="description" content="Ajude a preparar a chegada do bebê! Contribua via PIX.">
+<meta property="og:title" content="Vaquinha do Bebê 🍼">
+<meta property="og:description" content="Um novo papai está chegando! Ajude com qualquer valor via PIX.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fdf8f3; --card:#ffffff; --ink:#2d2a32; --muted:#6f6877;
+    --accent:#e88b6b; --accent-2:#7fb7be; --soft:#fbe9df; --soft-2:#e3f1f2;
+    --line:#efe4da; --ok:#3f9a6b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1c1a20; --card:#26232b; --ink:#f3eef5; --muted:#b3aabb;
+      --accent:#f09a7c; --accent-2:#8fc7ce; --soft:#3a2c28; --soft-2:#24363a;
+      --line:#3a3540; --ok:#5fc08c;
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,system-ui,sans-serif;line-height:1.6}
+  h1,h2,h3{font-family:Fraunces,Georgia,serif;line-height:1.15;margin:0 0 .5em}
+  a{color:inherit}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;border:0;border-radius:999px;
+    padding:.8em 1.4em;font:800 1rem Nunito,sans-serif;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s}
+  .btn:hover{transform:translateY(-2px)}
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 18px -6px var(--accent)}
+  .btn-ghost{background:var(--card);color:var(--ink);border:2px solid var(--line)}
+  .btn-wa{background:#25d366;color:#fff}
+
+  /* HERO */
+  .hero{position:relative;overflow:hidden;padding:72px 0 56px;text-align:center;
+    background:radial-gradient(circle at 15% 20%,var(--soft) 0,transparent 45%),radial-gradient(circle at 85% 30%,var(--soft-2) 0,transparent 45%)}
+  .hero .emoji{font-size:4rem;display:inline-block;animation:float 3s ease-in-out infinite}
+  @keyframes float{50%{transform:translateY(-10px) rotate(-4deg)}}
+  .hero h1{font-size:clamp(2.2rem,6vw,3.6rem);font-weight:800}
+  .hero h1 span{color:var(--accent)}
+  .hero p{font-size:1.15rem;color:var(--muted);max-width:620px;margin:0 auto 1.6em}
+  .hero .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .countdown{display:flex;gap:12px;justify-content:center;margin:28px 0 0;flex-wrap:wrap}
+  .countdown div{background:var(--card);border:2px solid var(--line);border-radius:18px;padding:10px 18px;min-width:86px}
+  .countdown b{display:block;font:800 1.8rem Fraunces,serif;color:var(--accent-2)}
+  .countdown small{color:var(--muted);font-weight:600}
+
+  section{padding:48px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 10px 30px -20px rgba(0,0,0,.25)}
+
+  /* PROGRESS */
+  .progress-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px}
+  .raised{font:800 2rem Fraunces,serif}
+  .goal{color:var(--muted)}
+  .bar{height:22px;background:var(--soft);border-radius:999px;overflow:hidden;margin:14px 0 10px}
+  .bar i{display:block;height:100%;width:0;border-radius:999px;transition:width 1.6s cubic-bezier(.2,.8,.2,1);
+    background:repeating-linear-gradient(45deg,var(--accent) 0 14px,#f2a48a 14px 28px)}
+  .stats{display:flex;gap:24px;flex-wrap:wrap;color:var(--muted);font-weight:600}
+
+  /* STORY */
+  .story{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center}
+  .story .photo{aspect-ratio:4/3;border-radius:24px;background:linear-gradient(135deg,var(--soft),var(--soft-2));
+    display:flex;align-items:center;justify-content:center;font-size:6rem;overflow:hidden}
+  .story .photo img{width:100%;height:100%;object-fit:cover}
+  @media (max-width:720px){.story{grid-template-columns:1fr}}
+
+  /* WISHLIST */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;margin-top:20px}
+  .item{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:20px;text-align:center;cursor:pointer;
+    transition:border-color .15s,transform .15s;font:inherit;color:inherit}
+  .item:hover,.item:focus-visible{border-color:var(--accent);transform:translateY(-3px);outline:none}
+  .item .ico{font-size:2.6rem}
+  .item h3{font-size:1.1rem;margin:.4em 0 .2em}
+  .item .price{color:var(--accent);font-weight:800}
+  .item small{display:block;color:var(--muted)}
+
+  /* PIX */
+  .pix{display:grid;grid-template-columns:1.1fr .9fr;gap:28px;align-items:start}
+  @media (max-width:720px){.pix{grid-template-columns:1fr}}
+  .amounts{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  .amounts button{border:2px solid var(--line);background:var(--bg);color:var(--ink);border-radius:14px;padding:.6em 1em;
+    font:800 1rem Nunito,sans-serif;cursor:pointer}
+  .amounts button.active{border-color:var(--accent);background:var(--soft)}
+  .custom{display:flex;align-items:center;gap:8px;border:2px solid var(--line);border-radius:14px;padding:.3em .8em;background:var(--bg)}
+  .custom input{border:0;background:transparent;font:800 1rem Nunito,sans-serif;color:var(--ink);width:110px;outline:none}
+  .qr-box{text-align:center}
+  #qrcode{display:inline-block;background:#fff;padding:14px;border-radius:18px;border:1px solid var(--line)}
+  #qrcode img,#qrcode canvas{display:block;width:220px;height:220px}
+  .copy-row{display:flex;gap:8px;margin-top:14px}
+  .copy-row input{flex:1;min-width:0;border:2px solid var(--line);border-radius:12px;padding:.6em .8em;background:var(--bg);color:var(--muted);font:600 .85rem monospace}
+  .keyline{margin-top:12px;color:var(--muted);font-size:.95rem;word-break:break-all}
+  .selected{margin:6px 0 0;font-weight:800;color:var(--accent-2)}
+
+  /* MESSAGES */
+  .msgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:20px}
+  .msg{background:var(--soft-2);border-radius:20px;padding:18px}
+  .msg p{margin:0 0 .5em}
+  .msg b{color:var(--muted)}
+
+  footer{text-align:center;padding:40px 16px 60px;color:var(--muted)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:var(--bg);
+    padding:.8em 1.4em;border-radius:999px;font-weight:800;transition:transform .3s,opacity .3s;z-index:9;opacity:0;pointer-events:none}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .muted{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="emoji">👶</div>
+    <h1>O <span id="dad-name">Fulano</span> vai ser papai!</h1>
+    <p id="hero-text">Vamos juntos ajudar a preparar a chegada do bebê. Qualquer valor faz diferença — fralda, carrinho, enxoval… tudo conta! 💛</p>
+    <div class="cta">
+      <a href="#pix" class="btn btn-primary">💸 Contribuir via PIX</a>
+      <button class="btn btn-wa" id="share-wa">Compartilhar no WhatsApp</button>
+    </div>
+    <div class="countdown" id="countdown" aria-label="Contagem regressiva para o nascimento"></div>
+    <p class="muted" id="due-label" style="margin-top:10px;font-size:.95rem"></p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section>
+    <div class="card">
+      <div class="progress-head">
+        <div><div class="raised" id="raised">R$ 0</div><span class="goal" id="goal">arrecadados de R$ 0</span></div>
+        <strong id="pct" style="font-size:1.4rem;color:var(--accent)">0%</strong>
+      </div>
+      <div class="bar"><i id="bar-fill"></i></div>
+      <div class="stats"><span id="donors">0 apoiadores</span><span id="updated"></span></div>
+    </div>
+  </section>
+
+  <section class="story">
+    <div class="photo" id="photo">🍼</div>
+    <div>
+      <h2>A história</h2>
+      <div id="story"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Lista de presentes</h2>
+    <p class="muted">Não sabe quanto mandar? Escolha um presente e o valor já vai para o PIX 👇</p>
+    <div class="grid" id="wishlist"></div>
+  </section>
+
+  <section id="pix">
+    <div class="card pix">
+      <div>
+        <h2>Contribua via PIX</h2>
+        <p class="muted">Escolha um valor (ou digite o seu), depois escaneie o QR Code ou copie o código "PIX copia e cola" no app do seu banco.</p>
+        <div class="amounts" id="amounts"></div>
+        <label class="custom">R$ <input id="custom" type="number" min="1" step="1" placeholder="Outro valor" inputmode="decimal"></label>
+        <p class="selected" id="selected"></p>
+        <p class="keyline">Ou use a chave PIX: <strong id="pix-key"></strong>
+          <button class="btn btn-ghost" style="padding:.3em .9em;font-size:.85rem;margin-left:6px" id="copy-key">Copiar chave</button></p>
+        <p class="keyline">Recebedor: <strong id="pix-name"></strong></p>
+      </div>
+      <div class="qr-box">
+        <div id="qrcode"></div>
+        <div class="copy-row">
+          <input id="pix-code" readonly aria-label="Código PIX copia e cola">
+          <button class="btn btn-primary" id="copy-code">Copiar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recadinhos para o papai 💌</h2>
+    <p class="muted">Mandou o PIX? Manda também um recado pelo WhatsApp que a gente coloca aqui!</p>
+    <div class="msgs" id="msgs"></div>
+  </section>
+
+</main>
+
+<footer>
+  Feito com 💛 pelos amigos do papai.<br>
+  <small>Todo valor vai direto para a conta do recebedor via PIX — nenhum intermediário.</small>
+</footer>
+
+<div class="toast" id="toast">Copiado! ✅</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ======================================================
+   ✏️  EDITE AQUI — tudo que aparece no site vem daqui
+   ====================================================== */
+const CONFIG = {
+  papai: "Fulano",                    // nome do seu amigo
+  mamae: "Ciclana",                   // nome da mamãe (ou deixe "")
+  bebe: "",                           // nome do bebê, se já tiver (ou "")
+  dataPrevista: "2027-03-15",         // data prevista do parto (AAAA-MM-DD)
+  foto: "",                           // URL/caminho de uma foto (ex: "foto.jpg") ou "" para emoji
+
+  meta: 3000,                         // meta em reais
+  arrecadado: 0,                      // atualize manualmente conforme os PIX chegarem
+  apoiadores: 0,                      // quantas pessoas já ajudaram
+  atualizadoEm: "16/11/2026",
+
+  pix: {
+    chave: "seuemail@exemplo.com",    // chave PIX (CPF, e-mail, celular +55..., ou aleatória)
+    nome: "FULANO DE TAL",            // nome do titular (até 25 letras)
+    cidade: "SAO PAULO",              // cidade do titular (até 15 letras)
+  },
+
+  historia: [
+    "Nosso amigo vai ganhar o presente mais lindo da vida: vai ser papai! 🥹",
+    "A família está crescendo e, como todo mundo sabe, bebê chega trazendo muito amor — e muita fralda também. Por isso a gente resolveu fazer essa vaquinha para dar aquela força no enxoval e nos primeiros meses.",
+    "Qualquer valor ajuda, e se não puder contribuir, compartilhar já é uma baita ajuda! 💛",
+  ],
+
+  valores: [20, 50, 100, 200],
+
+  presentes: [
+    { ico: "🧷", nome: "Pacote de fraldas", valor: 60,  obs: "Nunca é demais!" },
+    { ico: "🧴", nome: "Kit higiene",       valor: 80,  obs: "Shampoo, pomada, lenços" },
+    { ico: "👕", nome: "Kit de bodies",     valor: 120, obs: "Tamanhos RN e P" },
+    { ico: "🛁", nome: "Banheira",          valor: 150, obs: "Hora do banho" },
+    { ico: "🍼", nome: "Kit mamadeiras",    valor: 100, obs: "Com esterilizador" },
+    { ico: "🛏️", nome: "Berço",             valor: 600, obs: "Pode ser uma parte!" },
+    { ico: "🚼", nome: "Carrinho",          valor: 800, obs: "Pode ser uma parte!" },
+    { ico: "🧸", nome: "Pelúcia",           valor: 40,  obs: "Primeiro amiguinho" },
+  ],
+
+  recados: [
+    { texto: "Parabéns, papai! Vai ser o melhor pai do mundo!", autor: "Amigos da firma" },
+  ],
+};
+/* ====================================================== */
+
+const $ = (id) => document.getElementById(id);
+const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+// ---------- Textos ----------
+$("dad-name").textContent = CONFIG.papai;
+if (CONFIG.mamae || CONFIG.bebe) {
+  const quem = CONFIG.bebe ? `de ${CONFIG.bebe}` : "do bebê";
+  const pais = CONFIG.mamae ? `${CONFIG.papai} e ${CONFIG.mamae}` : CONFIG.papai;
+  $("hero-text").textContent = `Vamos juntos ajudar ${pais} a preparar a chegada ${quem}. Qualquer valor faz diferença — fralda, carrinho, enxoval… tudo conta! 💛`;
+}
+document.title = `Vaquinha do bebê do ${CONFIG.papai}`;
+$("story").innerHTML = "";
+CONFIG.historia.forEach((t) => { const p = document.createElement("p"); p.textContent = t; $("story").appendChild(p); });
+if (CONFIG.foto) $("photo").innerHTML = `<img src="${CONFIG.foto}" alt="Foto do papai">`;
+
+// ---------- Contagem regressiva ----------
+function tick() {
+  const due = new Date(CONFIG.dataPrevista + "T12:00:00");
+  const diff = due - new Date();
+  const el = $("countdown");
+  $("due-label").textContent = "Previsão de chegada: " + due.toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+  if (diff <= 0) { el.innerHTML = "<div><b>🎉</b><small>O bebê chegou!</small></div>"; return; }
+  const d = Math.floor(diff / 864e5), h = Math.floor(diff / 36e5) % 24, m = Math.floor(diff / 6e4) % 60;
+  const semanas = Math.floor(d / 7);
+  el.innerHTML = `<div><b>${d}</b><small>dias</small></div><div><b>${h}</b><small>horas</small></div><div><b>${m}</b><small>minutos</small></div><div><b>${semanas}</b><small>semanas</small></div>`;
+}
+tick(); setInterval(tick, 30000);
+
+// ---------- Progresso ----------
+const pct = Math.min(100, Math.round((CONFIG.arrecadado / CONFIG.meta) * 100));
+$("raised").textContent = brl(CONFIG.arrecadado);
+$("goal").textContent = `arrecadados de ${brl(CONFIG.meta)}`;
+$("pct").textContent = pct + "%";
+$("donors").textContent = `👥 ${CONFIG.apoiadores} ${CONFIG.apoiadores === 1 ? "apoiador" : "apoiadores"}`;
+$("updated").textContent = `🕒 Atualizado em ${CONFIG.atualizadoEm}`;
+requestAnimationFrame(() => setTimeout(() => ($("bar-fill").style.width = Math.max(pct, 2) + "%"), 150));
+
+// ---------- PIX (BR Code / EMV) ----------
+const clean = (s, max) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9 ]/g, "").toUpperCase().slice(0, max);
+const tlv = (id, v) => id + String(v.length).padStart(2, "0") + v;
+function crc16(str) {
+  let crc = 0xffff;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+    crc &= 0xffff;
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+function pixPayload(valor) {
+  const { chave, nome, cidade } = CONFIG.pix;
+  let p = tlv("00", "01") +
+    tlv("26", tlv("00", "br.gov.bcb.pix") + tlv("01", chave.trim()) + tlv("02", "Vaquinha do bebe")) +
+    tlv("52", "0000") + tlv("53", "986") +
+    (valor > 0 ? tlv("54", valor.toFixed(2)) : "") +
+    tlv("58", "BR") + tlv("59", clean(nome, 25)) + tlv("60", clean(cidade, 15)) +
+    tlv("62", tlv("05", "***")) + "6304";
+  return p + crc16(p);
+}
+
+let qr;
+function renderPix(valor, rotulo) {
+  const code = pixPayload(valor);
+  $("pix-code").value = code;
+  $("selected").textContent = valor > 0 ? `Valor selecionado: ${brl(valor)}${rotulo ? " — " + rotulo : ""}` : "Valor livre (você escolhe no app do banco)";
+  $("qrcode").innerHTML = "";
+  if (window.QRCode) qr = new QRCode($("qrcode"), { text: code, width: 440, height: 440, correctLevel: QRCode.CorrectLevel.M });
+  else $("qrcode").textContent = "Use o código copia e cola abaixo";
+}
+$("pix-key").textContent = CONFIG.pix.chave;
+$("pix-name").textContent = CONFIG.pix.nome;
+
+const amounts = $("amounts");
+function setActive(btn) { amounts.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn)); }
+CONFIG.valores.forEach((v) => {
+  const b = document.createElement("button");
+  b.textContent = brl(v).replace(",00", "");
+  b.onclick = () => { setActive(b); $("custom").value = ""; renderPix(v); };
+  amounts.appendChild(b);
+});
+const livre = document.createElement("button");
+livre.textContent = "Valor livre";
+livre.onclick = () => { setActive(livre); $("custom").value = ""; renderPix(0); };
+amounts.appendChild(livre);
+$("custom").addEventListener("input", (e) => {
+  const v = parseFloat(String(e.target.value).replace(",", "."));
+  setActive(null); renderPix(v > 0 ? v : 0);
+});
+
+// ---------- Lista de presentes ----------
+CONFIG.presentes.forEach((p) => {
+  const b = document.createElement("button");
+  b.className = "item";
+  b.innerHTML = `<div class="ico">${p.ico}</div><h3></h3><div class="price">${brl(p.valor)}</div><small></small>`;
+  b.querySelector("h3").textContent = p.nome;
+  b.querySelector("small").textContent = p.obs || "";
+  b.onclick = () => { setActive(null); $("custom").value = p.valor; renderPix(p.valor, p.ico + " " + p.nome); $("pix").scrollIntoView({ behavior: "smooth" }); };
+  $("wishlist").appendChild(b);
+});
+
+// ---------- Recados ----------
+CONFIG.recados.forEach((r) => {
+  const d = document.createElement("div");
+  d.className = "msg";
+  d.innerHTML = "<p></p><b></b>";
+  d.querySelector("p").textContent = `“${r.texto}”`;
+  d.querySelector("b").textContent = "— " + r.autor;
+  $("msgs").appendChild(d);
+});
+
+// ---------- Copiar / compartilhar ----------
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
+async function copy(text, msg) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const i = document.createElement("textarea"); i.value = text; document.body.appendChild(i); i.select(); document.execCommand("copy"); i.remove(); }
+  toast(msg);
+}
+$("copy-code").onclick = () => copy($("pix-code").value, "Código PIX copiado! ✅");
+$("copy-key").onclick = () => copy(CONFIG.pix.chave, "Chave PIX copiada! ✅");
+$("share-wa").onclick = () => {
+  const txt = `👶 O ${CONFIG.papai} vai ser papai! Bora ajudar na vaquinha do bebê? Qualquer valor ajuda 💛 ${location.href}`;
+  if (navigator.share) navigator.share({ title: document.title, text: txt }).catch(() => {});
+  else window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
+};
+
+renderPix(CONFIG.valores[1] || 0);
+setActive(amounts.children[1]);
+</script>
+</body>
+</html>
