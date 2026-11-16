@@ -19,15 +19,20 @@
     :root:not([data-theme="light"]){
       --bg:#1c1a20; --card:#26232b; --ink:#f3eef5; --muted:#b3aabb;
       --accent:#f09a7c; --accent-2:#8fc7ce; --soft:#3a2c28; --soft-2:#24363a;
-      --line:#3a3540; --ok:#5fc08c;
+      --line:#3a3540; --ok:#5fc08c; color-scheme:dark;
     }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1c1a20; --card:#26232b; --ink:#f3eef5; --muted:#b3aabb;
+    --accent:#f09a7c; --accent-2:#8fc7ce; --soft:#3a2c28; --soft-2:#24363a;
+    --line:#3a3540; --ok:#5fc08c; color-scheme:dark;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,system-ui,sans-serif;line-height:1.6}
   h1,h2,h3{font-family:Fraunces,Georgia,serif;line-height:1.15;margin:0 0 .5em}
   a{color:inherit}
-  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+  .wrap{max-width:960px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5em;border:0;border-radius:999px;
     padding:.8em 1.4em;font:800 1rem Nunito,sans-serif;cursor:pointer;text-decoration:none;transition:transform .15s,box-shadow .15s}
   .btn:hover{transform:translateY(-2px)}
@@ -131,7 +136,7 @@
     <p id="hero-text">Vamos juntos ajudar a preparar a chegada do bebê. Qualquer valor faz diferença — fralda, carrinho, enxoval… tudo conta! 💛</p>
     <div class="cta">
       <a href="#pix" class="btn btn-primary">💸 Contribuir via PIX</a>
-      <button class="btn btn-wa" id="share-wa">Compartilhar no WhatsApp</button>
+      <a class="btn btn-wa" id="share-wa" href="https://wa.me/" target="_blank" rel="noopener">Compartilhar no WhatsApp</a>
     </div>
     <div class="countdown" id="countdown" aria-label="Contagem regressiva para o nascimento"></div>
     <p class="muted" id="due-label" style="margin-top:10px;font-size:.95rem"></p>
@@ -210,7 +215,7 @@
     <p id="thanks-text"></p>
     <input id="thanks-name" placeholder="Seu nome (opcional)" autocomplete="name">
     <div class="actions">
-      <button class="btn btn-wa" id="thanks-wa">💬 Mandar recado pro papai</button>
+      <a class="btn btn-wa" id="thanks-wa" href="https://wa.me/" target="_blank" rel="noopener">💬 Mandar recado pro papai</a>
       <button class="btn btn-ghost" id="thanks-close">Fechar</button>
     </div>
   </div>
@@ -389,11 +394,8 @@ async function copy(text, msg) {
 }
 $("copy-code").onclick = () => copy($("pix-code").value, "Código PIX copiado! ✅");
 $("copy-key").onclick = () => copy(CONFIG.pix.chave, "Chave PIX copiada! ✅");
-$("share-wa").onclick = () => {
-  const txt = `👶 O ${CONFIG.papai} vai ser papai! Bora ajudar na vaquinha do bebê? Qualquer valor ajuda 💛 ${location.href}`;
-  if (navigator.share) navigator.share({ title: document.title, text: txt }).catch(() => {});
-  else window.open("https://wa.me/?text=" + encodeURIComponent(txt), "_blank");
-};
+$("share-wa").href = "https://wa.me/?text=" + encodeURIComponent(
+  `👶 O ${CONFIG.papai} vai ser papai! Bora ajudar na vaquinha do bebê? Qualquer valor ajuda 💛 ${location.href}`);
 
 // ---------- Agradecimento ----------
 let valorAtual = 0;
@@ -401,6 +403,7 @@ function abrirAgradecimento() {
   $("thanks-text").textContent = (valorAtual > 0 ? `Valeu demais pelos ${brl(valorAtual)}! ` : "") + CONFIG.agradecimento;
   $("thanks").classList.add("open");
   try { $("thanks-name").value = localStorage.getItem("vaquinha-nome") || ""; } catch {}
+  linkRecado();
   confete();
 }
 function fecharAgradecimento() { $("thanks").classList.remove("open"); }
@@ -408,12 +411,13 @@ $("paid").onclick = abrirAgradecimento;
 $("thanks-close").onclick = fecharAgradecimento;
 $("thanks").addEventListener("click", (e) => { if (e.target.id === "thanks") fecharAgradecimento(); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharAgradecimento(); });
-$("thanks-wa").onclick = () => {
+function linkRecado() {
   const nome = $("thanks-name").value.trim();
   try { localStorage.setItem("vaquinha-nome", nome); } catch {}
   const txt = `Oi, ${CONFIG.papai}! ${nome ? "Aqui é " + nome + ". " : ""}Acabei de mandar ${valorAtual > 0 ? brl(valorAtual) : "um PIX"} pra vaquinha do bebê 👶💛 Parabéns, papai!`;
-  window.open(`https://wa.me/${CONFIG.whatsappPapai.replace(/\D/g, "")}?text=` + encodeURIComponent(txt), "_blank");
-};
+  $("thanks-wa").href = `https://wa.me/${CONFIG.whatsappPapai.replace(/\D/g, "")}?text=` + encodeURIComponent(txt);
+}
+$("thanks-name").addEventListener("input", linkRecado);
 
 function confete() {
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
