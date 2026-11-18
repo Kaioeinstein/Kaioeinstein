@@ -1,0 +1,78 @@
+# ===== Configuração do Bot Shopee Vídeo (Afiliados) =====
+
+# Serial do celular (veja com: adb devices). Deixe vazio se só houver 1 celular.
+serial: ""
+
+# Pacote do app Shopee Brasil
+pacote_shopee: "com.shopee.br"
+
+# Pasta no PC com os vídeos e a planilha com legendas/links
+pasta_videos: "videos"
+planilha: "videos.csv"
+
+# Pasta no celular onde os vídeos são copiados (aparecem na galeria)
+pasta_celular: "/sdcard/DCIM/ShopeeBot"
+
+# Agendamento
+intervalo_min_minutos: 40      # espera mínima entre postagens
+intervalo_max_minutos: 90      # espera máxima (aleatória, parece mais humano)
+limite_por_dia: 8              # máximo de vídeos por dia
+horario_inicio: "08:00"        # só posta dentro desta janela
+horario_fim: "22:30"
+
+# Tempo padrão (segundos) para esperar um elemento aparecer na tela
+timeout_elemento: 15
+
+# ===== Fluxo de postagem =====
+# Cada passo é executado em ordem. O app da Shopee muda de versão,
+# então AJUSTE estes passos para o seu celular usando:
+#     python bot.py inspecionar
+#
+# Ações disponíveis:
+#   abrir_app: true                 -> abre a Shopee do zero
+#   clicar_texto: "Texto"           -> clica num elemento com esse texto (ou que contenha)
+#   clicar_desc: "Descrição"        -> clica por content-description (ícones)
+#   clicar_id: "com.shopee.br:id/x" -> clica por resource-id
+#   clicar_xy: [540, 1800]          -> clica numa coordenada (último recurso)
+#   primeiro_da_galeria: true       -> seleciona o vídeo mais recente da galeria
+#   digitar: "{legenda}"            -> digita no campo focado ({legenda} e {produto} são substituídos)
+#   esperar: 3                      -> espera N segundos
+#   voltar: true                    -> aperta o botão voltar
+#   opcional: true                  -> (junto com outra ação) se não achar, segue em frente
+fluxo:
+  - abrir_app: true
+  - esperar: 6
+  - clicar_texto: "Vídeo"            # aba "Vídeo" na barra de baixo
+  - esperar: 3
+  - clicar_desc: "Criar"             # botão de câmera / "+" no topo
+    opcional: true
+  - clicar_texto: "Carregar"         # ou "Galeria" / "Upload" dependendo da versão
+    opcional: true
+  - clicar_texto: "Galeria"
+    opcional: true
+  - esperar: 3
+  - primeiro_da_galeria: true
+  - esperar: 2
+  - clicar_texto: "Próximo"
+  - esperar: 5
+  - clicar_texto: "Próximo"          # tela de edição -> próximo
+    opcional: true
+  - esperar: 3
+  - clicar_texto: "Adicionar descrição"
+    opcional: true
+  - digitar: "{legenda}"
+  - voltar: true                     # fecha o teclado
+  - esperar: 1
+  - clicar_texto: "Adicionar produto"
+  - esperar: 3
+  - clicar_texto: "Pesquisar"
+    opcional: true
+  - digitar: "{produto}"             # cola o link/nome do produto afiliado
+  - esperar: 4
+  - clicar_texto: "Adicionar"
+  - esperar: 2
+  - clicar_texto: "Confirmar"
+    opcional: true
+  - esperar: 2
+  - clicar_texto: "Postar"
+  - esperar: 20                      # tempo para o upload

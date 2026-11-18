@@ -1,0 +1,5 @@
+videos/*.mp4
+videos/postados/
+postados.json
+bot.log
+__pycache__/
