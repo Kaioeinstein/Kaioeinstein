@@ -56,15 +56,18 @@ systemctl status einstein-remote
 O serviço escuta só em `127.0.0.1:8000`, com sistema de arquivos somente leitura exceto `/var/lib/einstein-remote`.
 Instale o [Caddy](https://caddyserver.com/docs/install) e use `deploy/Caddyfile.host` (troque o domínio).
 
-## D. Servidor no Windows
-Para usar o próprio PC como servidor (ele precisa ficar ligado):
+## D. Servidor no Windows (com acesso pelo 4G)
+Um script faz tudo: instala Python e Tailscale se faltarem, prepara o servidor, gera o certificado HTTPS do
+Tailscale (o celular não precisa instalar certificado), libera o firewall **só** para a rede Tailscale e a rede
+local, cria o início automático com o PC (antes mesmo de entrar no Windows, religando se cair), renova o
+certificado todo dia e mostra o endereço para abrir no celular:
 ```powershell
-python -m venv .venv; .venv\Scripts\pip install -r server\requirements.txt
-bash scripts/gen-cert.sh meu-pc 192.168.0.10  # Git Bash ou WSL (requer openssl) → certs\
-.\scripts\run-server.ps1 -Tls                   # https://0.0.0.0:8443
+powershell -ExecutionPolicy Bypass -File scripts\setup-windows-server.ps1
 ```
-Para iniciar com o Windows, crie uma tarefa no **Agendador de Tarefas** ("Ao fazer logon", ação
-`powershell -File <pasta>\scripts\run-server.ps1 -Tls`). Para acesso pela internet, prefira as opções A–C ou uma VPN.
+Durante a execução, entre na sua conta Tailscale quando pedido (e no celular, no app Tailscale, com a mesma conta).
+Parar: `... -Stop` · ligar de novo: rode o script sem opções · remover tudo: `... -Uninstall` ·
+sem Tailscale (certificado próprio em `certs\`): `... -SkipTailscale` · não mexer na suspensão: `... -KeepSleep`.
+Registro do servidor: `data\server.log`. O PC precisa ficar ligado (o script desativa a suspensão na tomada).
 
 ## Variáveis de ambiente
 | Variável | Padrão | Uso |

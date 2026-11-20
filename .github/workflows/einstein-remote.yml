@@ -59,6 +59,29 @@ jobs:
       - name: docker compose (servidor + Caddy) com agente real via wss://
         run: bash deploy/smoke_compose.sh
 
+  windows-server:
+    name: Servidor no Windows (início automático)
+    needs: tests
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: einstein-remote
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Certificado de teste
+        shell: bash
+        run: bash scripts/gen-cert.sh localhost 127.0.0.1
+      - name: setup-windows-server.ps1 — instalar, parar, religar, queda, remover (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          $py = (Get-Command python).Source
+          powershell -NoProfile -ExecutionPolicy Bypass -File deploy\smoke_windows_server.ps1 -Python $py
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
   windows-exe:
     name: Executável e instalador Windows
     needs: tests
