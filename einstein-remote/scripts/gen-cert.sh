@@ -2,6 +2,8 @@
 # Gera uma CA local + certificado do servidor (para uso em rede própria/testes).
 # Uso: ./scripts/gen-cert.sh meu-servidor.local 192.168.0.10
 set -euo pipefail
+# Git Bash (Windows) converteria "/CN=..." num caminho de arquivo
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"
 cd "$(dirname "$0")/.."
 HOST="${1:-localhost}"; IP="${2:-127.0.0.1}"
 mkdir -p certs && cd certs
