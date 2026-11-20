@@ -100,7 +100,12 @@ class RateLimiter:
 
     def _prune(self, key: str, now: float) -> list[float]:
         items = [t for t in self._failures.get(key, []) if now - t < self.lockout_seconds]
-        self._failures[key] = items
+        if items:
+            self._failures[key] = items
+        else:
+            self._failures.pop(key, None)  # não acumula chaves de IPs antigos
+        if len(self._failures) > 50_000:  # ataque distribuído: descarta entradas vencidas
+            self._failures = {k: v for k, v in self._failures.items() if v and now - v[-1] < self.lockout_seconds}
         return items
 
     def is_locked(self, key: str) -> bool:
@@ -110,7 +115,9 @@ class RateLimiter:
     def fail(self, key: str) -> None:
         with self._lock:
             now = time.time()
-            self._prune(key, now).append(now)
+            items = self._prune(key, now)
+            items.append(now)
+            self._failures[key] = items  # guarda mesmo quando era a primeira falha
 
     def reset(self, key: str) -> None:
         with self._lock:

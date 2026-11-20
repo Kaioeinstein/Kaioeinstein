@@ -14,6 +14,7 @@ dispositivos que tem permissão para ver.
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 import uuid
 from collections import deque
@@ -103,6 +104,7 @@ class AgentConn:
     high_since: dict[str, float] = field(default_factory=dict)
     last_alert: dict[str, float] = field(default_factory=dict)
     exit_state: str | None = None  # 'paused' | 'stopping' quando o dono encerra no próprio PC
+    name: str = ""  # nome do computador (evita consultar o banco a cada amostra)
     power: dict | None = None  # ação de energia agendada
 
 
@@ -111,12 +113,20 @@ EXIT_STATES = {"paused": "paused", "stopping": "stopped", "shutdown": "power_off
                "sleep": "sleeping", "hibernate": "hibernating"}
 
 
+# Fila de saída por painel: um painel lento/travado nunca atrasa os outros nem os agentes.
+CLIENT_QUEUE = 512  # mensagens; acima disso o painel é desconectado (reconecta sozinho)
+DROPPABLE = {"metrics", "transfer"}  # descartáveis quando o painel está atrasado (chegam de novo em ~1 s)
+
+
 @dataclass(eq=False)  # identidade por objeto (usado em set)
 class ClientConn:
     ws: WebSocket
     user: dict
     session_id: str
     access: set[str] | None = None  # None = todos os dispositivos
+    outbox: asyncio.Queue | None = None
+    writer: asyncio.Task | None = None
+    dropped: int = 0
 
     def can_see(self, device_id: str | None) -> bool:
         if device_id is None:
@@ -193,19 +203,84 @@ class Hub:
             raise TransferError(msg.get("error") or "Falha no computador.")
         return msg.get("data") or {}
 
+    # -- envio para painéis (sempre pela fila, nunca bloqueia quem chamou) ----
+    def start_client(self, client: ClientConn) -> None:
+        client.outbox = asyncio.Queue(maxsize=CLIENT_QUEUE)
+        client.writer = asyncio.create_task(self._client_writer(client))
+        self.clients.add(client)
+
+    async def stop_client(self, client: ClientConn) -> None:
+        self.clients.discard(client)
+        if client.writer:
+            client.writer.cancel()
+
+    async def _client_writer(self, client: ClientConn) -> None:
+        try:
+            while True:
+                text = await client.outbox.get()
+                await asyncio.wait_for(client.ws.send_text(text), timeout=20)
+        except asyncio.CancelledError:
+            pass
+        except Exception:  # travado há 20 s ou conexão caiu
+            self.clients.discard(client)
+            try:
+                await client.ws.close(code=1013)
+            except Exception:
+                pass
+
+    def send_client(self, client: ClientConn, msg: dict, text: str | None = None) -> bool:
+        q = client.outbox
+        if q is None:
+            return False
+        if msg.get("type") in DROPPABLE and q.qsize() >= CLIENT_QUEUE // 2:
+            client.dropped += 1  # atrasado: descarta só o que é reenviado em seguida
+            return False
+        try:
+            q.put_nowait(text if text is not None else json.dumps(msg))
+            return True
+        except asyncio.QueueFull:  # nem os avisos importantes cabem: desconecta (reconecta e recebe tudo de novo)
+            self.clients.discard(client)
+            if client.writer:
+                client.writer.cancel()
+            asyncio.create_task(self._close_quietly(client.ws, 1013))
+            return False
+
+    @staticmethod
+    async def _close_quietly(ws: WebSocket, code: int) -> None:
+        try:
+            await ws.close(code=code)
+        except Exception:
+            pass
+
     async def broadcast(self, msg: dict, device_id: str | None = None) -> None:
-        targets = [c for c in list(self.clients) if c.can_see(device_id)]
-        for c in targets:
-            if not await self._send(c.ws, msg):
-                self.clients.discard(c)
+        text = json.dumps(msg)  # serializa uma vez para todos
+        for c in [c for c in list(self.clients) if c.can_see(device_id)]:
+            self.send_client(c, msg, text)
 
     async def notify(self, level: str, kind: str, message: str, device_id: str | None = None) -> None:
         note = self.db.add_notification(level, kind, message, device_id)
         if self.push:
             self.push.dispatch(note)  # notificação push para aparelhos com o app fechado
+        msg = {"type": "notification", "data": note}
+        text = json.dumps(msg)
         for c in [c for c in list(self.clients) if c.can_see_note(note)]:
-            if not await self._send(c.ws, {"type": "notification", "data": note}):
-                self.clients.discard(c)
+            self.send_client(c, msg, text)
+
+    async def security_alert(self, key: str, message: str, seconds: float = 60) -> None:
+        """Alerta de tentativa indevida com limite de 1 por minuto por origem (a auditoria registra todas)."""
+        now = time.time()
+        if now - self._global_alerts.get(f"sec:{key}", 0) < seconds:
+            return
+        self._global_alerts[f"sec:{key}"] = now
+        if len(self._global_alerts) > 10_000:  # não cresce sem limite sob ataque distribuído
+            cutoff = now - 3600
+            self._global_alerts = {k: v for k, v in self._global_alerts.items() if v > cutoff}
+        await self.notify("critical", "unauthorized", message)
+
+    def rename_agent(self, device_id: str, name: str) -> None:
+        conn = self.agents.get(device_id)
+        if conn:
+            conn.name = name
 
     def _cooldown_ok(self, store: dict[str, float], key: str) -> bool:
         now = time.time()
@@ -240,7 +315,7 @@ class Hub:
     async def agent_connected(self, device: dict, ws: WebSocket, info: dict) -> AgentConn:
         async with self._lock:
             old = self.agents.get(device["id"])
-            conn = AgentConn(device_id=device["id"], ws=ws, info=info)
+            conn = AgentConn(device_id=device["id"], ws=ws, info=info, name=device["name"])
             self.agents[device["id"]] = conn
         if old:
             try:
@@ -282,7 +357,7 @@ class Hub:
         for cid, p in list(self.pending.items()):
             if p.device_id == conn.device_id:
                 self.pending.pop(cid, None)
-                await self._send(p.client.ws, {"type": "result", "id": cid, "ok": False, "error": "Agente desconectado"})
+                self.send_client(p.client, {"type": "result", "id": cid, "ok": False, "error": "Agente desconectado"})
         if device and device["revoked"]:
             await self.broadcast({"type": "device_removed", "device_id": conn.device_id}, conn.device_id)
         elif device:
@@ -348,8 +423,7 @@ class Hub:
 
     async def _check_alerts(self, conn: AgentConn, s: dict) -> None:
         p = self.prefs
-        device = self.db.get_device_public(conn.device_id)
-        name = device["name"] if device else conn.device_id
+        name = conn.name or conn.device_id
         now = time.time()
         checks = [
             ("high_cpu", s.get("cpu"), p["cpu_alert_percent"], "warning", "uso de CPU elevado ({v:.0f}%)"),
@@ -376,7 +450,7 @@ class Hub:
                 "command.rejected", user=client.user, device_id=device_id if isinstance(device_id, str) else None,
                 detail={"action": action, "error": error}, success=False,
             )
-            await self._send(client.ws, {"type": "result", "request_id": req_id, "ok": False, "error": error})
+            self.send_client(client, {"type": "result", "request_id": req_id, "ok": False, "error": error})
 
         if action not in ALLOWED_ACTIONS:
             return await reject("Ação não permitida")
@@ -398,7 +472,7 @@ class Hub:
         if action.startswith("screen."):
             params, local = self.screens.prepare(client, action, device_id, params)
             if local is not None:
-                return await self._send(client.ws, {"type": "result", "request_id": req_id, "ok": True, "data": local})
+                return self.send_client(client, {"type": "result", "request_id": req_id, "ok": True, "data": local})
 
         cmd_id = uuid.uuid4().hex
         self.pending[cmd_id] = PendingCommand(
@@ -406,10 +480,10 @@ class Hub:
         )
         if policy.audit:
             self.db.audit("command.sent", user=client.user, device_id=device_id, detail={"action": action, "params": params})
-        await self._send(client.ws, {"type": "ack", "request_id": req_id, "id": cmd_id})
+        self.send_client(client, {"type": "ack", "request_id": req_id, "id": cmd_id})
         if not await self._send(conn.ws, {"type": "command", "id": cmd_id, "action": action, "params": params}):
             self.pending.pop(cmd_id, None)
-            await self._send(client.ws, {"type": "result", "id": cmd_id, "request_id": req_id, "ok": False, "error": "Falha ao enviar"})
+            self.send_client(client, {"type": "result", "id": cmd_id, "request_id": req_id, "ok": False, "error": "Falha ao enviar"})
 
     async def command_result(self, conn: AgentConn, msg: dict) -> None:
         cmd_id = msg.get("id")
@@ -426,10 +500,7 @@ class Hub:
             if pending.action == "process.kill":
                 detail["process"] = f"{pending.params.get('name')} (PID {pending.params.get('pid')})"
             self.db.audit("command.result", user=pending.client.user, device_id=conn.device_id, detail=detail, success=ok)
-        await self._send(
-            pending.client.ws,
-            {"type": "result", "id": cmd_id, "ok": ok, "data": msg.get("data"), "error": msg.get("error")},
-        )
+        self.send_client(pending.client, {"type": "result", "id": cmd_id, "ok": ok, "data": msg.get("data"), "error": msg.get("error")})
         if ok and pending.action == "screen.start":
             self.screens.started(pending.client, conn.device_id, pending.params, msg.get("data") or {})
         if pending.audit and pending.action != "screen.start" and self.prefs["notify_commands"]:
@@ -447,7 +518,7 @@ class Hub:
         for cid, p in list(self.pending.items()):
             if now - p.created > self.settings.command_timeout:
                 self.pending.pop(cid, None)
-                await self._send(p.client.ws, {"type": "result", "id": cid, "ok": False, "error": "Tempo esgotado"})
+                self.send_client(p.client, {"type": "result", "id": cid, "ok": False, "error": "Tempo esgotado"})
 
     # -- revogação -------------------------------------------------------------
     async def _close_clients(self, clients: list[ClientConn], reason: str) -> None:

@@ -30,5 +30,6 @@ cd agent && pip install . && einstein-agent pair --server http://127.0.0.1:8000 
 - [Arquitetura e fases](docs/ARCHITECTURE.md)
 - [Modelo de segurança](docs/SECURITY.md)
 - [Manual de utilização](docs/MANUAL.md)
+- [Testes, carga e estabilidade](docs/TESTING.md)
 
-**Status:** Fase 8 concluída — 2FA (TOTP) com códigos de recuperação e política obrigatória, alerta de novo acesso, notificações push com o app fechado; arquivos com SHA-256; central de energia; tela remota com controle; SYSTEM MONITOR; agente na bandeja; executável Windows testado no CI.
+**Status:** Fase 9 concluída — testado com 500 computadores simultâneos, estabilidade (reinício do servidor, painéis travados), GPU de qualquer fabricante e temperatura no Windows, análise estática sem pendências ([relatório](docs/TESTING.md)). 2FA, push, arquivos, energia, tela remota, SYSTEM MONITOR; executável Windows testado no CI.

@@ -112,6 +112,17 @@ class MetricsCollector:
         self._gpu_cache: list[dict] = []
         self._gpu_ts = 0.0
         self._nvidia_smi = shutil.which("nvidia-smi")
+        self._win = None  # contadores do Windows (GPU de qualquer fabricante, zonas térmicas)
+        self._win_gpu_names: list[dict] = []
+        if sys.platform == "win32":
+            from . import win_perf
+            from .sysmon import _windows_gpus
+
+            self._win = win_perf.create()
+            try:
+                self._win_gpu_names = [g for g in _windows_gpus() if "basic" not in g["name"].lower()]
+            except Exception:
+                self._win_gpu_names = []
         self._system_drive = (os.environ.get("SystemDrive", "C:") + "\\") if sys.platform == "win32" else "/"
         psutil.cpu_percent(None)  # primeira leitura descartada (referência)
         psutil.cpu_percent(None, percpu=True)
@@ -151,8 +162,8 @@ class MetricsCollector:
             self._gpu_cache = []
         return self._gpu_cache
 
-    def _temperatures(self, gpus: list[dict]) -> dict:
-        sensors: list[dict] = []
+    def _temperatures(self, gpus: list[dict], extra: list[dict] | None = None) -> dict:
+        sensors: list[dict] = list(extra or [])
         fn = getattr(psutil, "sensors_temperatures", None)  # não existe no Windows
         if fn:
             try:
@@ -163,7 +174,8 @@ class MetricsCollector:
             except Exception:
                 pass
         for g in gpus:
-            sensors.append({"label": f"GPU {g['name']}", "current": g["temp"]})
+            if g.get("temp") is not None:  # GPU sem sensor de temperatura (ex.: dados do PDH)
+                sensors.append({"label": f"GPU {g['name']}", "current": g["temp"]})
         return {"max": max((s["current"] for s in sensors), default=None), "sensors": sensors[:16]}
 
     def _disks(self) -> list[dict]:
@@ -212,6 +224,15 @@ class MetricsCollector:
         sw = psutil.swap_memory()
         freq = psutil.cpu_freq()
         gpus = self._gpu()
+        extra_temps: list[dict] = []
+        if self._win:
+            try:
+                win = self._win.sample(self._win_gpu_names)
+                extra_temps = win["sensors"]
+                if not gpus:  # sem nvidia-smi: AMD, Intel ou NVIDIA sem a ferramenta
+                    gpus = win["gpus"]
+            except Exception:
+                pass
         return {
             "ts": now,
             "cpu": {
@@ -229,7 +250,7 @@ class MetricsCollector:
             "disks": self._disks(),
             "network": {"down_bps": down, "up_bps": up, "total_recv": net.bytes_recv, "total_sent": net.bytes_sent},
             "gpu": gpus,
-            "temperatures": self._temperatures(gpus),
+            "temperatures": self._temperatures(gpus, extra_temps),
             "uptime": now - psutil.boot_time(),
             "process_count": len(psutil.pids()),
         }

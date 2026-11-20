@@ -132,3 +132,24 @@ def test_security_headers_and_spa(client):
     assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
     assert r.headers["x-frame-options"] == "DENY"
     assert client.get("/api/nao-existe").status_code == 404
+
+
+def test_brute_force_alerts_are_rate_limited(client, owner):
+    """Ataque de senha não pode inundar o dono de alertas/push: 1 por minuto por IP; auditoria registra todas."""
+    headers, _ = owner
+    for i in range(4):
+        client.post("/api/auth/login", json={"username": f"invasor{i}", "password": "errada!!"}, headers=XHR)
+    alerts = [n for n in client.get("/api/notifications", headers=headers).json() if n["kind"] == "unauthorized"]
+    failed = [a for a in client.get("/api/audit", headers=headers).json() if a["action"] == "auth.login_failed"]
+    assert len(alerts) == 1 and len(failed) == 4
+
+
+def test_rate_limiter_forgets_old_keys():
+    from app.security import RateLimiter
+
+    rl = RateLimiter(3, 60)
+    rl.fail("ip:1")
+    assert not rl.is_locked("ip:1") and "ip:1" in rl._failures  # a primeira falha conta
+    rl.lockout_seconds = 0  # tudo expira
+    rl.is_locked("ip:1")
+    assert "ip:1" not in rl._failures

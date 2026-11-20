@@ -130,7 +130,7 @@ class ScreenManager:
 
     async def _tell_viewers(self, session: ScreenSession, reason: str) -> None:
         for c in list(session.viewers):
-            await self.hub._send(c.ws, {"type": "screen_stopped", "device_id": session.device_id, "reason": reason})
+            self.hub.send_client(c, {"type": "screen_stopped", "device_id": session.device_id, "reason": reason})
 
     # -------------------------------------------------------------- mensagens do cliente
     async def client_message(self, client, msg: dict) -> None:

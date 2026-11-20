@@ -201,7 +201,9 @@ def test_notification_read_state_is_per_user(client, owner):
     client.post("/api/auth/login", json={"username": "kaio", "password": "errada!!"}, headers=XHR)  # gera alerta global
     make_user(client, headers, "ivo", role="admin")
     ih, _ = login(client, "ivo")
-    client.post("/api/auth/login", json={"username": "kaio", "password": "errada!!"}, headers=XHR)
+    with client.websocket_connect("/ws/agent") as bad:  # outro alerta global (agente com credencial inválida)
+        bad.send_json({"type": "auth", "device_id": "x", "secret": "y"})
+        bad.receive_json()
     assert client.post("/api/notifications/read-all", headers=headers).status_code == 200
     assert all(n["read"] for n in client.get("/api/notifications", headers=headers).json())
     ivo_notes = client.get("/api/notifications", headers=ih).json()

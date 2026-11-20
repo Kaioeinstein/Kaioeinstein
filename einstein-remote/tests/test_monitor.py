@@ -211,3 +211,48 @@ def test_end_to_end_list_and_kill(live_server, victim):  # noqa: F811
         assert wait_for(lambda: not victim.is_running() or victim.status() == psutil.STATUS_ZOMBIE)
     finally:
         runner.stop()
+
+
+# ------------------------------------------------------------------ Fase 9: GPU/temperatura no Windows
+def test_gpu_engine_aggregation_like_task_manager():
+    from einstein_agent.win_perf import adapter_memory, gpu_usage_from_engines, kelvin_to_celsius
+
+    engines = {
+        "pid_100_luid_0x00000000_0x0000D1A2_phys_0_eng_0_engtype_3D": 30.0,
+        "pid_200_luid_0x00000000_0x0000D1A2_phys_0_eng_0_engtype_3D": 25.0,   # 3D somado entre processos = 55
+        "pid_200_luid_0x00000000_0x0000D1A2_phys_0_eng_4_engtype_VideoDecode": 40.0,
+        "pid_300_luid_0x00000000_0x0000BEEF_phys_0_eng_0_engtype_3D": 5.0,
+        "lixo": 99.0,
+    }
+    assert gpu_usage_from_engines(engines) == {"0x00000000_0x0000D1A2": 55.0, "0x00000000_0x0000BEEF": 5.0}
+    assert gpu_usage_from_engines({"pid_1_luid_a_phys_0_eng_0_engtype_3D": 80.0, "pid_2_luid_a_phys_0_eng_0_engtype_3D": 70.0}) == {"a": 100.0}
+    assert adapter_memory({"luid_0x0_0xD1A2_phys_0": 2e9, "luid_0x0_0xD1A2_phys_1": 1e9}) == {"0x0_0xD1A2": 3e9}
+    assert kelvin_to_celsius(318.15) == 45.0 and kelvin_to_celsius(0) is None and kelvin_to_celsius(5000) is None
+
+
+def test_temperatures_ignore_gpus_without_sensor():
+    from einstein_agent.metrics import MetricsCollector
+
+    t = MetricsCollector()._temperatures([{"name": "Radeon", "temp": None}], [{"label": "Zona", "current": 51.0}])
+    assert t["max"] == 51.0 and len(t["sensors"]) >= 1
+
+
+@pytest.mark.skipif(not WINDOWS, reason="somente Windows")
+def test_windows_pdh_counters():
+    """Valida o acesso à API PDH com um contador que sempre existe; GPU/temperatura podem não existir na VM."""
+    from einstein_agent.win_perf import PdhQuery, create
+
+    q = PdhQuery()
+    assert q.add(r"\Processor(_Total)\% Processor Time") and q.add(r"\Processor(*)\% Processor Time")
+    q.collect()
+    time.sleep(0.6)
+    q.collect()
+    total = q.value(r"\Processor(_Total)\% Processor Time")
+    per_core = q.array(r"\Processor(*)\% Processor Time")
+    assert total is not None and 0 <= total <= 100
+    assert "_Total" in per_core and len(per_core) >= 2
+    q.close()
+    sensors = create()
+    assert sensors is not None
+    s = sensors.sample([])
+    assert isinstance(s["gpus"], list) and isinstance(s["sensors"], list)

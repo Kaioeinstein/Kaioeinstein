@@ -70,6 +70,14 @@ class PushDispatcher:
 
     async def _send_one(self, sub: dict, message: dict, urgency: str) -> int:
         try:
+            # revalida a cada envio: um domínio pode passar a apontar para a rede interna (DNS rebinding)
+            await asyncio.to_thread(webpush.check_endpoint, sub["endpoint"], ALLOW_HTTP)
+        except ValueError as exc:
+            log.warning("Envio de push bloqueado (%s): %s", exc, sub["endpoint"][:80])
+            self.db.push_result(sub["endpoint"], False)
+            self.sent.append((sub["endpoint"], -1))
+            return -1
+        try:
             status = await asyncio.to_thread(webpush.send, self.vapid, sub, message, 24 * 3600, urgency)
         except Exception as exc:
             log.warning("Falha ao enviar push: %s", exc)

@@ -138,7 +138,8 @@ def send(vapid: Vapid, sub: dict, message: dict, ttl: int = 3600, urgency: str =
                "Urgency": urgency, **vapid.headers(sub["endpoint"])}
     req = urllib.request.Request(sub["endpoint"], data=body, headers=headers, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        # endereço validado por check_endpoint() na inscrição E a cada envio (push_api._send_one)
+        with urllib.request.urlopen(req, timeout=timeout) as r:  # nosec B310
             return r.status
     except urllib.error.HTTPError as e:
         return e.code

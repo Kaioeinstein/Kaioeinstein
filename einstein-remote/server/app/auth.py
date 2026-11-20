@@ -207,7 +207,7 @@ async def login(creds: Credentials, request: Request, response: Response):
         for k in keys:
             st.limiter.fail(k)
         st.db.audit("auth.login_failed", detail={"username": creds.username}, ip=ip, success=False)
-        await st.hub.notify("critical", "unauthorized", f"Tentativa de acesso não autorizada (usuário '{creds.username}', IP {ip})")
+        await st.hub.security_alert(f"login:{ip}", f"Tentativa de acesso não autorizada (usuário '{creds.username}', IP {ip})")
         raise HTTPException(401, "Usuário ou senha inválidos")
     for k in keys:
         st.limiter.reset(k)
@@ -255,7 +255,7 @@ async def verify_2fa(body: TwoFactorCode, request: Request, response: Response):
     if not method:
         st.limiter.fail(key)
         st.db.audit("auth.2fa_failed", user=user, ip=ip, success=False)
-        await st.hub.notify("critical", "unauthorized", f"Código de verificação incorreto para '{user['username']}' (IP {ip})")
+        await st.hub.security_alert(f"2fa:{ip}", f"Código de verificação incorreto para '{user['username']}' (IP {ip})")
         raise HTTPException(401, "Código incorreto.")
     st.limiter.reset(key)
     return await _complete_login(request, response, user, method)

@@ -113,8 +113,8 @@ async def client_socket(ws: WebSocket):
         return
     access = st.db.accessible_device_ids(user)
     client = ClientConn(ws=ws, user=user, session_id=session["id"], access=access)
-    st.hub.clients.add(client)
     await ws.send_json({"type": "hello", "user": public_user(user), "devices": st.hub.snapshot(access)})
+    st.hub.start_client(client)  # a partir daqui tudo sai pela fila do painel, em ordem
     last_check = 0.0
     try:
         while True:
@@ -135,9 +135,9 @@ async def client_socket(ws: WebSocket):
             elif kind in ("input", "screen_ack"):
                 await st.hub.screens.client_message(client, data)
             elif kind == "ping":
-                await ws.send_json({"type": "pong"})
+                st.hub.send_client(client, {"type": "pong"})
     except (WebSocketDisconnect, RuntimeError, ValueError):
         pass
     finally:
-        st.hub.clients.discard(client)
+        await st.hub.stop_client(client)
         await st.hub.screens.client_gone(client)

@@ -29,9 +29,9 @@ def test_native_commands(dry_run):
     power.schedule_native("shutdown", 60, "EINSTEIN REMOTE: teste")
     power.schedule_native("restart", 0, "x")
     power.cancel_native()
-    if WINDOWS:
-        assert dry_run == [["shutdown", "/s", "/t", "60", "/c", "EINSTEIN REMOTE: teste"],
-                           ["shutdown", "/r", "/t", "0", "/c", "x"], ["shutdown", "/a"]]
+    if WINDOWS:  # caminho absoluto em System32 (não depende do PATH)
+        assert all(c[0].lower().endswith(("\\system32\\shutdown.exe")) for c in dry_run), dry_run
+        assert [c[1:] for c in dry_run] == [["/s", "/t", "60", "/c", "EINSTEIN REMOTE: teste"], ["/r", "/t", "0", "/c", "x"], ["/a"]]
     else:
         assert dry_run == [["shutdown", "-h", "+1", "EINSTEIN REMOTE: teste"], ["shutdown", "-r", "now", "x"], ["shutdown", "-c"]]
 
@@ -209,8 +209,8 @@ def test_end_to_end_schedule_and_cancel(live_server, dry_run):  # noqa: F811
 
         asyncio.run(scenario())
         flag = "/r" if WINDOWS else "-r"
-        assert any(c[:2] == ["shutdown", flag] for c in dry_run)
-        assert (["shutdown", "/a"] if WINDOWS else ["shutdown", "-c"]) in dry_run
+        assert any(c[0].lower().endswith(("shutdown", "shutdown.exe")) and c[1] == flag for c in dry_run)
+        assert any(c[0].lower().endswith(("shutdown", "shutdown.exe")) and c[1:] == (["/a"] if WINDOWS else ["-c"]) for c in dry_run)
         assert owner_events[0]["pending"]["by"] == "kaio" and owner_events[-1] == {"pending": None}
         kinds = [n["message"] for n in http.get("/api/notifications").json() if n["kind"] == "power"]
         assert any("cancelado" in k for k in kinds) and any("reinício" in k for k in kinds)

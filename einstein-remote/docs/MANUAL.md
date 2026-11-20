@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.8, Fase 8)
+# EINSTEIN REMOTE — Manual de utilização (v0.9, Fase 9)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -113,8 +113,8 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
 Abra o endereço do servidor no navegador e use **Adicionar à tela inicial** — o EINSTEIN REMOTE MOBILE abre como app, com navegação inferior.
 
 ## 6. Limitações conhecidas (honestas)
-- **Temperatura no Windows:** o Windows não expõe sensores de CPU via psutil; o painel mostra a temperatura da GPU NVIDIA quando houver. Integração com LibreHardwareMonitor está prevista na Fase 4.
-- **GPU:** uso medido via `nvidia-smi` (NVIDIA). AMD/Intel serão tratadas na Fase 4 (contadores de desempenho do Windows).
+- **Temperatura no Windows:** o painel usa as zonas térmicas ACPI do Windows (quando o fabricante as expõe) e a temperatura da GPU NVIDIA. Para temperaturas detalhadas de CPU/GPU/placa-mãe, deixe o [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) aberto (ele precisa rodar como administrador para ler os sensores; o agente lê os valores que ele publica no WMI, a cada 15 s). Sem nenhuma dessas fontes, o painel mostra “Sensor indisponível” em vez de inventar um valor.
+- **GPU:** uso de qualquer placa (NVIDIA, AMD, Intel) pelos contadores do Windows 10/11 — o mesmo número do Gerenciador de Tarefas; com `nvidia-smi` instalado, também a temperatura da NVIDIA.
 - Tela remota, mouse/teclado, energia, processos e arquivos chegam nas Fases 4–7 e **ainda não aparecem** no painel.
 - **Tela remota:** `Ctrl+Alt+Del`, janelas de UAC ("Deseja permitir...") e a tela de bloqueio do Windows não aceitam mouse/teclado remotos — proteção do próprio Windows. Programas executados como administrador também ignoram a entrada se o agente não estiver elevado.
 - **Desempenho da tela:** ~10–15 quadros/s em rede boa; em rede lenta a taxa cai automaticamente (sem atraso acumulado). Telas paradas quase não consomem banda.

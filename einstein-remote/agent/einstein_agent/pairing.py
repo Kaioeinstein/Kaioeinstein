@@ -49,7 +49,8 @@ def pair(server: str, code: str, ca_file: str = "", allow_insecure: bool = False
     )
     try:
         ctx = ssl_context(cfg) if cfg.server_url.startswith("https://") else None
-        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+        # nosec B310: normalize_server() só aceita http:// e https:// (nunca file: ou outros esquemas)
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:  # nosec B310
             data = json.loads(resp.read())
     except urllib.error.HTTPError as e:
         try:

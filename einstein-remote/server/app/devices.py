@@ -81,6 +81,7 @@ def rename_device(device_id: str, body: RenameRequest, request: Request, user: d
     st = request.app.state
     _require_access(request, user, device_id)
     st.db.rename_device(device_id, body.name.strip())
+    st.hub.rename_agent(device_id, body.name.strip())
     st.db.audit("device.renamed", user=user, device_id=device_id, detail={"name": body.name}, ip=client_ip(request))
     return {"ok": True}
 

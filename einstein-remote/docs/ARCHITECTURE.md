@@ -68,6 +68,7 @@ inferior, gauges 2×2), instalável pela opção "Adicionar à tela inicial" —
 | `folders_window.py` | Janela “Pastas liberadas” da bandeja |
 | `power.py` | Energia: `shutdown /s|/r /t N` (agendamento nativo, cancelável com `/a`), `SetSuspendState` com privilégio, `LockWorkStation`, capacidades reais (`GetPwrCapabilities`), modo de simulação para testes |
 | `overlay.py` | Faixa "tela compartilhada" sempre visível com botão Encerrar e janela de pedido de permissão (thread Tk dedicada) |
+| `win_perf.py` | Contadores do Windows (PDH): uso de GPU de qualquer fabricante (como o Gerenciador de Tarefas), memória de vídeo, zonas térmicas; sensores do LibreHardwareMonitor quando disponível |
 | `icons.py` | Ícones gerados em código (bandeja e `.ico` do executável) |
 | `dialogs.py` | Caixas de mensagem nativas do Windows |
 | `cli.py` | `tray`, `pair`, `run`, `status`, `pause`, `resume`, `logs`, `autostart`, `uninstall` |
@@ -141,5 +142,5 @@ agente ◀──{"type":"input","events":[...]}───────── servi
 | 6 | Energia: desligar, reiniciar, suspender, hibernar, bloquear, cancelar e ligar (Wake-on-LAN), com prazos e confirmação | ✅ concluída |
 | 7 | Arquivos: pastas liberadas pelo dono, navegação, download, upload, nova pasta e cópia entre computadores com SHA‑256 | ✅ concluída |
 | 8 | 2FA (TOTP) com códigos de recuperação e política obrigatória, alerta de novo acesso, notificações push com o app fechado, encerrar outras sessões | ✅ concluída |
-| 9 | Testes de carga, testes no Windows real, correções | próxima |
-| 10 | Instalador (.exe com Inno Setup + PyInstaller), servidor como serviço, versão 1.0 | |
+| 9 | Carga (500 PCs), estabilidade, painel travado isolado, GPU/temperatura no Windows, bandit e cobertura — ver [TESTING.md](TESTING.md) | ✅ concluída |
+| 10 | Instalador (.exe com Inno Setup + PyInstaller), servidor como serviço, versão 1.0 | próxima |

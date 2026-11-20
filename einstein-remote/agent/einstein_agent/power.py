@@ -29,6 +29,15 @@ class PowerError(Exception):
     pass
 
 
+def system_exe(name: str) -> str:
+    """Caminho absoluto de utilitários do Windows (evita executar um 'shutdown.exe' falso colocado no PATH)."""
+    if WINDOWS:
+        path = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", f"{name}.exe")
+        if os.path.exists(path):
+            return path
+    return name
+
+
 def dry_run() -> bool:
     return os.environ.get("EINSTEIN_POWER_DRY_RUN") == "1"
 
@@ -117,7 +126,7 @@ def schedule_native(action: str, delay: int, comment: str) -> None:
     """Desligar/reiniciar com prazo, pelo agendador do sistema."""
     if WINDOWS:
         flag = "/s" if action == "shutdown" else "/r"
-        r = _run(["shutdown", flag, "/t", str(delay), "/c", comment[:500]])
+        r = _run([system_exe("shutdown"), flag, "/t", str(delay), "/c", comment[:500]])
         if r is not None and r.returncode != 0:
             # 1190 = já existe um desligamento agendado
             raise PowerError(f"O Windows recusou: {(r.stderr or r.stdout).strip() or r.returncode}")
@@ -129,7 +138,7 @@ def schedule_native(action: str, delay: int, comment: str) -> None:
 
 
 def cancel_native() -> bool:
-    r = _run(["shutdown", "/a"] if WINDOWS else ["shutdown", "-c"])
+    r = _run([system_exe("shutdown"), "/a"] if WINDOWS else ["shutdown", "-c"])
     return r is None or r.returncode == 0
 
 

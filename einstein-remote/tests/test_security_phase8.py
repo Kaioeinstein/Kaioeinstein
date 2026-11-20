@@ -270,3 +270,22 @@ def test_push_respects_visibility(client, owner, push_service, monkeypatch):
     assert push_service.received == []  # observador não recebe alertas globais de segurança
     monkeypatch.setattr(push_api, "ALLOW_HTTP", False)  # modo normal: rede interna é bloqueada (SSRF)
     assert client.post("/api/push/subscribe", headers=obs, json={**sub, "endpoint": "https://10.1.2.3/x"}).status_code == 422
+
+
+def test_push_revalidates_endpoint_on_every_send(client, owner, monkeypatch):
+    """DNS rebinding: endereço aceito na inscrição mas que depois aponta para a rede interna não recebe envio."""
+    from app import push_api
+
+    headers, _ = owner
+    _, sub = _browser_subscription("https://push.exemplo-legitimo.com/abc")
+    monkeypatch.setattr(webpush, "check_endpoint", lambda url, allow_http=False: None)  # inscrição aceita
+    assert client.post("/api/push/subscribe", headers=headers, json=sub).status_code == 200
+
+    def rebinding(url, allow_http=False):
+        raise ValueError("Endereço de push aponta para a rede interna.")
+
+    monkeypatch.setattr(webpush, "check_endpoint", rebinding)  # agora resolve para 10.x
+    sent = []
+    monkeypatch.setattr(webpush, "send", lambda *a, **k: sent.append(a) or 201)
+    r = client.post("/api/push/test", headers=headers).json()
+    assert r["accepted"] == 0 and sent == []  # nada foi enviado

@@ -213,7 +213,8 @@ class Database:
         if not fields:
             return
         cols = ", ".join(f"{k} = ?" for k in fields)
-        self.execute(f"UPDATE users SET {cols} WHERE id = ?", (*fields.values(), user_id))
+        # nomes de coluna vêm só da lista fixa `allowed`; valores vão como parâmetros
+        self.execute(f"UPDATE users SET {cols} WHERE id = ?", (*fields.values(), user_id))  # nosec B608
 
     def delete_user(self, user_id: int) -> None:
         """Remove o usuário. Dispositivos vinculados por ele passam ao proprietário."""

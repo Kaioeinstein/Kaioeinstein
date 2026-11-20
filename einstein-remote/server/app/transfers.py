@@ -80,7 +80,7 @@ class TransferManager:
         msg = {"type": "transfer", "tid": t.tid, "kind": t.kind, "name": t.name, "device_id": t.device_id,
                "done": t.moved, "size": t.size, "state": state}
         for c in [c for c in list(self.hub.clients) if c.user["id"] == t.user["id"]]:
-            await self.hub._send(c.ws, msg)
+            self.hub.send_client(c, msg)
 
     async def _cancel_agent(self, t: Transfer) -> None:
         conn = self.hub.agents.get(t.device_id)
