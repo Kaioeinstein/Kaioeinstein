@@ -45,7 +45,8 @@ VSVersionInfo(
 )
 """, encoding="utf-8")
 
-hidden = ["pystray._win32"] if sys.platform == "win32" else ["pystray._xorg"]
+# módulos carregados dinamicamente (bandeja, captura de tela, entrada no X11)
+hidden = ["pystray._win32", "mss.windows"] if sys.platform == "win32" else ["pystray._xorg", "mss.linux", "Xlib.ext.xtest"]
 common = dict(
     pathex=[str(AGENT)],
     hiddenimports=hidden + ["PIL.ImageTk"],

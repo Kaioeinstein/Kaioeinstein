@@ -57,6 +57,17 @@ Camadas, todas obrigatórias:
 4. **Agente — processos protegidos:** núcleo do Windows (`csrss`, `lsass`, `wininit`, `winlogon`, `services`, `svchost`, `dwm`, `explorer`, antivírus...), PIDs 0/4 e o próprio agente nunca são encerrados.
 5. **Auditoria:** quem, quando, qual processo e o resultado; opcionalmente uma notificação.
 
+## Tela remota e controle (Fase 5)
+- **Quem pode:** administradores/proprietário com acesso ao computador. Observadores não veem a tela.
+- **No PC, sempre visível:** faixa no topo "Tela compartilhada com *fulano* · mouse e teclado remotos ATIVOS", com botão **Encerrar**; ícone da bandeja muda de cor; aviso do Windows ao iniciar.
+- **Escolha do dono (bandeja ou CLI):**
+  - *Acesso à tela:* **Permitir sem perguntar** (para acessar o próprio PC à distância) · **Perguntar a cada sessão** (janela Permitir/Recusar; sem resposta em 30 s = recusado) · **Bloquear**.
+  - *Permitir controle de mouse e teclado:* pode ser desligado mantendo só a visualização; vale na hora, inclusive no meio de uma sessão.
+- **Servidor:** quadros vão apenas para quem abriu a sessão; eventos de entrada só de quem tem controle, no máximo 64 por mensagem e 400/s; eventos são validados no agente (tipos, teclas e coordenadas permitidas).
+- **Auditoria e alertas:** início (quem, com/sem controle), fim (motivo, duração, quadros); notificação a cada acesso.
+- **Segurança do Windows preservada:** `Ctrl+Alt+Del`, tela de UAC e a tela de bloqueio não aceitam entrada simulada — por design do Windows.
+- Ao encerrar ou se a conexão cair, teclas e botões pressionados são soltos automaticamente.
+
 ## Produção — checklist
 - Rodar com HTTPS (`scripts/run-server.sh --tls`) e `EINSTEIN_COOKIE_SECURE=1`.
 - Atrás de proxy reverso (Caddy/Nginx), encaminhar WebSocket e restringir o acesso ao diretório `data/`.

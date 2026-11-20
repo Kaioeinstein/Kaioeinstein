@@ -53,8 +53,9 @@ class TrayApp:
         import pystray
 
         self.pystray = pystray
-        self.runner = AgentRunner(on_status=self._on_status)
+        self.runner = AgentRunner(on_status=self._on_status, on_screen=self._on_screen)
         self.status = Status("starting")
+        self.screen = {"active": False, "viewers": [], "control": False}
         self._was_online = False
         self._lock = threading.Lock()
         icon_cls = backend_icon_cls or pystray.Icon
@@ -72,14 +73,36 @@ class TrayApp:
         return text
 
     def tooltip(self) -> str:
-        return f"{TITLE} · {self.status_text()}"[:120]  # limite do Windows: 127
+        text = f"{TITLE} · {self.status_text()}"
+        if self.screen["active"]:
+            text += f" · tela compartilhada com {', '.join(self.screen['viewers'])}"
+        return text[:120]  # limite do Windows: 127
+
+    def _icon_state(self) -> str:
+        return "sharing" if self.screen["active"] and self.status.state == "online" else self.status.state
+
+    def _on_screen(self, st: dict) -> None:
+        was = self.screen["active"]
+        self.screen = st
+        try:
+            self.icon.icon = make_icon(self._icon_state())
+            self.icon.title = self.tooltip()
+        except Exception:
+            log.debug("Não foi possível atualizar o ícone", exc_info=True)
+        self._refresh_menu()
+        who = ", ".join(st["viewers"]) or "o painel"
+        if st["active"] and not was:
+            self.notify(f"Sua tela está sendo vista por {who}" + (" (com controle de mouse e teclado)." if st["control"] else ".")
+                        + " Use “Encerrar” na faixa ou no menu do ícone para interromper.")
+        elif not st["active"] and was:
+            self.notify("Compartilhamento de tela encerrado.")
 
     def _on_status(self, st: Status) -> None:
         with self._lock:
             prev = self.status
             self.status = st
         try:  # falha ao redesenhar o ícone nunca impede avisos e menu
-            self.icon.icon = make_icon(st.state)
+            self.icon.icon = make_icon(self._icon_state())
             self.icon.title = self.tooltip()
         except Exception:
             log.debug("Não foi possível atualizar o ícone", exc_info=True)
@@ -124,8 +147,19 @@ class TrayApp:
               visible=lambda item: not self.cfg.paired or self.status.state == "rejected"),
             M("Iniciar com o Windows", self.toggle_autostart, checked=lambda item: autostart.is_enabled(),
               visible=sys.platform == "win32"),
+            M("Encerrar compartilhamento de tela", self.stop_screen, visible=lambda item: self.screen["active"]),
             M("Permitir encerrar processos pelo painel", self.toggle_process_kill,
               checked=lambda item: self.cfg.allow_process_kill, visible=paired),
+            M("Acesso à tela", self.pystray.Menu(
+                M("Permitir sem perguntar", self._set_access("allow"), radio=True,
+                  checked=lambda item: self.cfg.screen_access == "allow"),
+                M("Perguntar a cada sessão", self._set_access("ask"), radio=True,
+                  checked=lambda item: self.cfg.screen_access == "ask"),
+                M("Bloquear", self._set_access("deny"), radio=True,
+                  checked=lambda item: self.cfg.screen_access == "deny"),
+            ), visible=paired),
+            M("Permitir controle de mouse e teclado", self.toggle_remote_input,
+              checked=lambda item: self.cfg.allow_remote_input, visible=paired),
             SEP,
             M("Ver registro (log)", self.open_log),
             M("Abrir pasta de configuração", self.open_config),
@@ -165,6 +199,33 @@ class TrayApp:
         cfg.save()
         log.info("Encerramento remoto de processos %s pelo proprietário (bandeja)",
                  "permitido" if cfg.allow_process_kill else "bloqueado")
+        self._refresh_menu()
+
+    def stop_screen(self, *_):
+        log.info("Compartilhamento de tela encerrado pelo proprietário (bandeja)")
+        try:
+            self.runner.stop_screen()
+        except Exception:
+            log.exception("Falha ao encerrar o compartilhamento")
+
+    def _set_access(self, mode: str):
+        def apply(*_):
+            cfg = self.cfg
+            cfg.screen_access = mode
+            cfg.save()
+            log.info("Acesso à tela alterado para '%s' pelo proprietário (bandeja)", mode)
+            if mode == "deny":
+                self.stop_screen()
+            self._refresh_menu()
+
+        return apply
+
+    def toggle_remote_input(self, *_):
+        cfg = self.cfg
+        cfg.allow_remote_input = not cfg.allow_remote_input
+        cfg.save()
+        log.info("Controle remoto de mouse/teclado %s pelo proprietário (bandeja)",
+                 "permitido" if cfg.allow_remote_input else "bloqueado")
         self._refresh_menu()
 
     def pair(self, *_):
@@ -227,6 +288,9 @@ class TrayApp:
 
 
 def main() -> int:
+    from .screen import enable_dpi_awareness
+
+    enable_dpi_awareness()  # antes de qualquer janela: coordenadas corretas em telas com escala
     setup_logging(console=False)
     lock = SingleInstance("agent")
     if not lock.acquire():

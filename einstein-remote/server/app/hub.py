@@ -23,6 +23,7 @@ from fastapi import WebSocket
 
 from .db import Database
 from .preferences import Preferences
+from .screens import ScreenManager
 
 @dataclass(frozen=True)
 class ActionPolicy:
@@ -42,6 +43,10 @@ ALLOWED_ACTIONS: dict[str, ActionPolicy] = {
     "system.hardware": ActionPolicy("viewer", audit=False),
     "system.network": ActionPolicy("viewer", audit=False),
     "process.kill": ActionPolicy("admin", confirm=True),
+    # Tela remota (Fase 5): somente administradores; início sempre auditado e notificado
+    "screen.monitors": ActionPolicy("admin", audit=False),
+    "screen.start": ActionPolicy("admin"),
+    "screen.stop": ActionPolicy("viewer", audit=False),
 }
 
 ROLE_LEVEL = {"viewer": 0, "admin": 1, "owner": 2}
@@ -128,6 +133,7 @@ class Hub:
         self.pending: dict[str, PendingCommand] = {}
         self._lock = asyncio.Lock()
         self._global_alerts: dict[str, float] = {}
+        self.screens = ScreenManager(self)
 
     # -- envio seguro --------------------------------------------------------
     @staticmethod
@@ -212,6 +218,7 @@ class Hub:
         self.db.set_device_state(conn.device_id, state)
         device = self.db.get_device_public(conn.device_id)
         self.db.audit("agent.disconnected", device_id=conn.device_id, detail={"reason": state})
+        await self.screens.agent_gone(conn.device_id)
         # falha todos os comandos pendentes deste agente
         for cid, p in list(self.pending.items()):
             if p.device_id == conn.device_id:
@@ -294,6 +301,11 @@ class Hub:
         conn = self.agents.get(device_id)
         if not conn:
             return await reject("Dispositivo offline")
+        params = {k: v for k, v in params.items() if not str(k).startswith("_")}  # campos internos são do servidor
+        if action.startswith("screen."):
+            params, local = self.screens.prepare(client, action, device_id, params)
+            if local is not None:
+                return await self._send(client.ws, {"type": "result", "request_id": req_id, "ok": True, "data": local})
 
         cmd_id = uuid.uuid4().hex
         self.pending[cmd_id] = PendingCommand(
@@ -321,7 +333,9 @@ class Hub:
             pending.client.ws,
             {"type": "result", "id": cmd_id, "ok": ok, "data": msg.get("data"), "error": msg.get("error")},
         )
-        if pending.audit and self.prefs["notify_commands"]:
+        if ok and pending.action == "screen.start":
+            self.screens.started(pending.client, conn.device_id, pending.params, msg.get("data") or {})
+        if pending.audit and pending.action != "screen.start" and self.prefs["notify_commands"]:
             who = pending.client.user["username"]
             if pending.action == "process.kill":
                 proc = f"{pending.params.get('name')} (PID {pending.params.get('pid')})"

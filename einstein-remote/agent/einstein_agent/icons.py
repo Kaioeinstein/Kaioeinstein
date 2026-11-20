@@ -7,6 +7,7 @@ PURPLE = (168, 85, 247)
 GREEN = (34, 227, 160)
 STATE_COLORS = {
     "online": (34, 227, 160),
+    "sharing": (168, 85, 247),  # tela sendo compartilhada
     "connecting": (245, 181, 68),
     "starting": (245, 181, 68),
     "paused": (245, 181, 68),

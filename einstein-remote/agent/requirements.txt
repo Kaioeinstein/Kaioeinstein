@@ -2,3 +2,5 @@ psutil>=5.9
 websockets>=13
 pystray>=0.19
 pillow>=10
+mss>=9
+python-xlib>=0.33; sys_platform == "linux"

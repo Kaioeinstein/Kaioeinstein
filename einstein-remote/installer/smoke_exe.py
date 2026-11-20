@@ -83,6 +83,13 @@ def main() -> int:
         out = subprocess.run([str(cli), "--version"], capture_output=True, encoding="utf-8", errors="replace", env=env, check=True).stdout.strip()
         print(f"[1/5] versão do executável: {out}")
 
+        diag = subprocess.run([str(cli), "diag"], capture_output=True, encoding="utf-8", errors="replace", env=env)
+        print(diag.stdout.strip())
+        assert "Captura de tela: ok" in diag.stdout, diag.stdout + diag.stderr  # mss empacotado e funcionando
+        assert "Mouse e teclado remotos: ok" in diag.stdout, diag.stdout + diag.stderr
+        if os.name == "nt":  # no Windows a faixa de aviso (Tk) é obrigatória no pacote
+            assert "Avisos visíveis (faixa/pedido de permissão): ok" in diag.stdout, diag.stdout
+
         code = call(base, "/api/pairing-codes", {"device_name": "PC Smoke"}, token)["code"]
         r = subprocess.run([str(cli), "pair", "--server", base, "--code", code], capture_output=True, encoding="utf-8", errors="replace", env=env)
         print(r.stdout.strip())

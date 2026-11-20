@@ -13,8 +13,10 @@ log = logging.getLogger("einstein.runner")
 
 
 class AgentRunner:
-    def __init__(self, on_status: Callable[[Status], None] | None = None):
+    def __init__(self, on_status: Callable[[Status], None] | None = None,
+                 on_screen: Callable[[dict], None] | None = None):
         self.on_status = on_status
+        self.on_screen = on_screen
         self.agent: Agent | None = None
         self._thread: threading.Thread | None = None
         self.status = Status("unpaired")
@@ -35,7 +37,7 @@ class AgentRunner:
         if not cfg.paired:
             self._emit(Status("unpaired"))
             return False
-        self.agent = Agent(cfg, on_status=self._emit)
+        self.agent = Agent(cfg, on_status=self._emit, on_screen=self.on_screen)
         self._thread = threading.Thread(target=self._run, name="einstein-agent", daemon=True)
         self._thread.start()
         return True
@@ -61,6 +63,16 @@ class AgentRunner:
     def restart(self) -> bool:
         self.stop()
         return self.start()
+
+    def stop_screen(self) -> bool:
+        """Encerra o compartilhamento de tela pelo próprio PC (bandeja)."""
+        import asyncio
+
+        a = self.agent
+        if not (a and a._loop and a.screen and a.screen.active):
+            return False
+        asyncio.run_coroutine_threadsafe(a.screen.stop("owner"), a._loop).result(10)
+        return True
 
     @staticmethod
     def set_paused(value: bool) -> None:

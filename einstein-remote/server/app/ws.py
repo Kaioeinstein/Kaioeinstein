@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
@@ -17,6 +18,8 @@ from .hub import ClientConn
 router = APIRouter()
 AUTH_TIMEOUT = 10
 MAX_MESSAGE = 4 * 1024 * 1024
+MAX_FRAME = 8 * 1024 * 1024
+SESSION_RECHECK = 5.0
 
 
 async def _first_message(ws: WebSocket) -> dict | None:
@@ -50,7 +53,14 @@ async def agent_socket(ws: WebSocket):
     conn = await st.hub.agent_connected(device, ws, info)
     try:
         while True:
-            raw = await ws.receive_text()
+            message = await ws.receive()
+            if message["type"] == "websocket.disconnect":
+                break
+            if message.get("bytes") is not None:  # quadro de tela (binário)
+                if len(message["bytes"]) <= MAX_FRAME:
+                    await st.hub.screens.frame(conn.device_id, message["bytes"])
+                continue
+            raw = message.get("text") or ""
             if len(raw) > MAX_MESSAGE:
                 continue
             try:
@@ -62,6 +72,8 @@ async def agent_socket(ws: WebSocket):
                 await st.hub.agent_metrics(conn, data["data"])
             elif kind == "result":
                 await st.hub.command_result(conn, data)
+            elif kind == "screen_event":
+                await st.hub.screens.agent_event(conn.device_id, data)
             elif kind == "status" and isinstance(data.get("state"), str):
                 st.hub.agent_status(conn, data["state"])
             elif kind == "info" and isinstance(data.get("data"), dict):
@@ -90,21 +102,29 @@ async def client_socket(ws: WebSocket):
     client = ClientConn(ws=ws, user=user, session_id=session["id"], access=access)
     st.hub.clients.add(client)
     await ws.send_json({"type": "hello", "user": public_user(user), "devices": st.hub.snapshot(access)})
+    last_check = 0.0
     try:
         while True:
             data = await ws.receive_json()
             if not isinstance(data, dict):
                 continue
-            # revalida a sessão a cada comando (revogação tem efeito imediato)
-            s = st.db.get_session(client.session_id)
-            if not s or s["revoked"]:
-                await ws.close(code=4401)
-                break
-            if data.get("type") == "command":
+            kind = data.get("type")
+            # revalida a sessão a cada comando e, para eventos frequentes (mouse), a cada poucos segundos
+            now = time.time()
+            if kind == "command" or now - last_check > SESSION_RECHECK:
+                last_check = now
+                s = st.db.get_session(client.session_id)
+                if not s or s["revoked"]:
+                    await ws.close(code=4401)
+                    break
+            if kind == "command":
                 await st.hub.send_command(client, data)
-            elif data.get("type") == "ping":
+            elif kind in ("input", "screen_ack"):
+                await st.hub.screens.client_message(client, data)
+            elif kind == "ping":
                 await ws.send_json({"type": "pong"})
     except (WebSocketDisconnect, RuntimeError, ValueError):
         pass
     finally:
         st.hub.clients.discard(client)
+        await st.hub.screens.client_gone(client)

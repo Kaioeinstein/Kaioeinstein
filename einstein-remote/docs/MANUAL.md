@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.4, Fase 4)
+# EINSTEIN REMOTE — Manual de utilização (v0.5, Fase 5)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -50,10 +50,11 @@ Teste local sem TLS: `--server http://127.0.0.1:8000`.
 |---|---|
 | 🟢 verde | Online, enviando dados ao painel |
 | 🟡 amarelo | Conectando ou **pausado por você** |
+| 🟣 roxo | Sua tela está sendo compartilhada |
 | 🔴 vermelho | Sem conexão (tenta de novo sozinho) ou vínculo revogado |
 | ⚪ cinza | Não vinculado |
 
-Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Iniciar com o Windows** · **Permitir encerrar processos pelo painel** · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
+Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Encerrar compartilhamento de tela** (durante uma sessão) · **Acesso à tela** (permitir / perguntar / bloquear) · **Permitir controle de mouse e teclado** · **Iniciar com o Windows** · **Permitir encerrar processos pelo painel** · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
 Se o vínculo for revogado no painel, aparece **Vincular este computador…** para refazer.
 
 ## 4. Comandos do agente
@@ -66,6 +67,8 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
 | `einstein-agent pause` / `resume` | Pausa/retoma (o agente em execução obedece em até 2 s) |
 | `einstein-agent autostart enable` / `disable` | Liga/desliga o início com o Windows (visível em Gerenciador de Tarefas › Inicializar) |
 | `einstein-agent remote-kill enable` / `disable` | Permite/bloqueia neste PC o encerramento de processos pelo painel |
+| `einstein-agent screen-access allow` / `ask` / `deny` | Acesso remoto à tela: sem perguntar / perguntar a cada sessão / bloqueado |
+| `einstein-agent remote-input enable` / `disable` | Permite/bloqueia controle de mouse e teclado |
 | `einstein-agent uninstall` | Remove vínculo, configuração e auto‑início |
 
 ## 5. Painel
@@ -78,6 +81,12 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
   - *Hardware* — fabricante/modelo, placa-mãe, BIOS, processador, memória, placas de vídeo, discos, bateria.
   - *Rede* — velocidade atual, totais, conexões por estado e cada interface (IPv4/IPv6/MAC/velocidade).
   Processos essenciais do Windows e o próprio agente aparecem como *protegido*.
+- **Tela remota** (*Ver tela* na tela inicial ou *Acessar tela* no cartão do computador — administradores):
+  - Imagem ao vivo; qualidade **Econômica / Equilibrada / Alta / Máxima** (resolução e compressão da transmissão); seleção de **monitor**; **Tela cheia**.
+  - **Controle ligado/desligado.** Com controle: mouse e teclado do seu computador vão para o PC remoto.
+  - **Teclas**: atalhos que o seu navegador não deixa enviar (Win, Alt+Tab, Ctrl+Shift+Esc, Alt+F4, Win+D...).
+  - **Celular/tablet:** toque = clique · toque longo = botão direito · arrastar = mover o ponteiro · dois dedos = rolar · botão **Teclado** abre o teclado do celular (acentos funcionam).
+  - No PC aparece a faixa *“Tela compartilhada com …”* com botão **Encerrar**.
 - **Dispositivos:** gerar código, renomear, revogar.
 - **Alertas:** conexão/desconexão, CPU alta, RAM no limite, temperatura alta, tentativas de acesso; opção de alertas nativos do navegador.
 - **Segurança:** sessões ativas (revogar) e registro de auditoria.
@@ -93,6 +102,8 @@ Abra o endereço do servidor no navegador e use **Adicionar à tela inicial** �
 - **Temperatura no Windows:** o Windows não expõe sensores de CPU via psutil; o painel mostra a temperatura da GPU NVIDIA quando houver. Integração com LibreHardwareMonitor está prevista na Fase 4.
 - **GPU:** uso medido via `nvidia-smi` (NVIDIA). AMD/Intel serão tratadas na Fase 4 (contadores de desempenho do Windows).
 - Tela remota, mouse/teclado, energia, processos e arquivos chegam nas Fases 4–7 e **ainda não aparecem** no painel.
+- **Tela remota:** `Ctrl+Alt+Del`, janelas de UAC ("Deseja permitir...") e a tela de bloqueio do Windows não aceitam mouse/teclado remotos — proteção do próprio Windows. Programas executados como administrador também ignoram a entrada se o agente não estiver elevado.
+- **Desempenho da tela:** ~10–15 quadros/s em rede boa; em rede lenta a taxa cai automaticamente (sem atraso acumulado). Telas paradas quase não consomem banda.
 - Só um agente roda por usuário do Windows; abrir de novo avisa que já está em execução.
 - Registro local: `%LOCALAPPDATA%\EinsteinRemote\logs\agent.log` (rotativo, até ~6 MB).
 - As notificações aparecem no painel e como alerta nativo do navegador (com a página aberta em segundo plano). Push com o app fechado chega na Fase 8.

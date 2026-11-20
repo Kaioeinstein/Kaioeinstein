@@ -106,6 +106,8 @@ def cmd_status(args) -> int:
     print(f"Pausado:       {'sim' if cfg.paused else 'não'}")
     print(f"Auto-início:   {'ativado' if autostart.is_enabled() else 'desativado'}")
     print(f"Encerrar processos pelo painel: {'permitido' if cfg.allow_process_kill else 'bloqueado'}")
+    print(f"Acesso à tela: {({'allow': 'permitido sem perguntar', 'ask': 'perguntar a cada sessão', 'deny': 'bloqueado'}).get(cfg.screen_access, cfg.screen_access)}")
+    print(f"Controle de mouse e teclado: {'permitido' if cfg.allow_remote_input else 'bloqueado'}")
     return 0
 
 
@@ -131,6 +133,50 @@ def cmd_remote_kill(args) -> int:
     cfg.allow_process_kill = args.mode == "enable"
     cfg.save()
     print("Encerramento remoto de processos " + ("PERMITIDO" if cfg.allow_process_kill else "BLOQUEADO") + " neste computador.")
+    return 0
+
+
+def cmd_diag(args) -> int:
+    """Testa, neste computador, os recursos usados pelo painel (útil para suporte)."""
+    import platform
+
+    from .inputs import create_injector
+    from .overlay import ui_available
+    from .screen import Capturer
+
+    ok = True
+    print(f"EINSTEIN REMOTE AGENT {__version__} · Python {platform.python_version()} · {platform.platform()}")
+    try:
+        cap = Capturer()
+        mons = cap.monitors()
+        jpeg, _, size = cap.grab(mons[0], 640, 50, None, None)
+        cap.close()
+        print(f"Captura de tela: ok ({len(mons)} monitor(es); {', '.join(f'{m['width']}x{m['height']}' for m in mons)}; JPEG {len(jpeg) // 1024} KB)")
+    except Exception as e:
+        ok = False
+        print(f"Captura de tela: FALHOU ({type(e).__name__}: {e})")
+    inj = create_injector()
+    print("Mouse e teclado remotos: ok" if inj else "Mouse e teclado remotos: indisponível neste sistema")
+    if inj:
+        print(f"  posição do ponteiro: {inj.cursor()}")
+    print("Avisos visíveis (faixa/pedido de permissão): ok" if ui_available() else "Avisos visíveis: indisponível (sem interface gráfica)")
+    return 0 if ok else 1
+
+
+def cmd_screen_access(args) -> int:
+    cfg = AgentConfig.load()
+    cfg.screen_access = args.mode
+    cfg.save()
+    labels = {"allow": "PERMITIDO sem perguntar (com faixa de aviso)", "ask": "PERGUNTAR a cada sessão", "deny": "BLOQUEADO"}
+    print(f"Acesso remoto à tela: {labels[args.mode]}.")
+    return 0
+
+
+def cmd_remote_input(args) -> int:
+    cfg = AgentConfig.load()
+    cfg.allow_remote_input = args.mode == "enable"
+    cfg.save()
+    print("Controle remoto de mouse e teclado " + ("PERMITIDO" if cfg.allow_remote_input else "BLOQUEADO") + " neste computador.")
     return 0
 
 
@@ -181,6 +227,9 @@ def _safe_console() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     _safe_console()
+    from .screen import enable_dpi_awareness
+
+    enable_dpi_awareness()
     p = argparse.ArgumentParser(prog="einstein-agent", description="EINSTEIN REMOTE AGENT")
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -208,6 +257,14 @@ def main(argv: list[str] | None = None) -> int:
     sk = sub.add_parser("remote-kill", help="permite/bloqueia encerrar processos pelo painel")
     sk.add_argument("mode", choices=["enable", "disable"])
     sk.set_defaults(fn=cmd_remote_kill)
+
+    sub.add_parser("diag", help="testa captura de tela, mouse/teclado e avisos neste PC").set_defaults(fn=cmd_diag)
+    sc = sub.add_parser("screen-access", help="acesso remoto à tela: allow | ask | deny")
+    sc.add_argument("mode", choices=["allow", "ask", "deny"])
+    sc.set_defaults(fn=cmd_screen_access)
+    si = sub.add_parser("remote-input", help="permite/bloqueia controle de mouse e teclado")
+    si.add_argument("mode", choices=["enable", "disable"])
+    si.set_defaults(fn=cmd_remote_input)
 
     su = sub.add_parser("uninstall", help="remove vínculo e configuração")
     su.add_argument("--yes", action="store_true")

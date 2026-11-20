@@ -80,9 +80,11 @@ export class Live extends EventTarget {
     this.closed = false;
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(`${proto}://${location.host}/ws/client`);
+    ws.binaryType = "arraybuffer"; // quadros da tela remota chegam como binário
     this.ws = ws;
     ws.onopen = () => ws.send(JSON.stringify({ type: "auth", token: accessToken }));
     ws.onmessage = (ev) => {
+      if (ev.data instanceof ArrayBuffer) { this.emit("frame", ev.data); return; }
       let msg; try { msg = JSON.parse(ev.data); } catch { return; }
       if (msg.type === "hello") { this.backoff = 1000; this.emit("status", { online: true }); }
       if (msg.type === "ack") {
@@ -115,6 +117,11 @@ export class Live extends EventTarget {
   }
 
   close() { this.closed = true; this.ws?.close(); }
+
+  /** Envia mensagem sem esperar resposta (entrada de mouse/teclado, confirmação de quadro). */
+  post(msg) {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
+  }
 
   emit(type, detail) { this.dispatchEvent(new CustomEvent(type, { detail })); }
 

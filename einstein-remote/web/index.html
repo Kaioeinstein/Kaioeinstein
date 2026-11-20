@@ -83,7 +83,7 @@
               <button class="shortcut" id="sc-history"><i class="ic ic-chart"></i><span>Histórico</span><small>1h · 24h · 7d</small></button>
               <button class="shortcut admin-only" data-goto="devices"><i class="ic ic-pc"></i><span>Vincular PC</span><small>código único</small></button>
               <button class="shortcut" data-goto="notifications"><i class="ic ic-bell"></i><span>Alertas</span><small id="sc-alerts">—</small></button>
-              <button class="shortcut" data-goto="security"><i class="ic ic-shield"></i><span>Sessões</span><small>segurança</small></button>
+              <button class="shortcut admin-only" id="sc-screen"><i class="ic ic-screen"></i><span>Ver tela</span><small>controle remoto</small></button>
               <button class="shortcut" data-goto="settings"><i class="ic ic-gear"></i><span>Ajustes</span><small>limites · usuários</small></button>
             </div>
           </div>
@@ -131,6 +131,9 @@
                 <dt>Agente</dt><dd id="d-agent">—</dd>
                 <dt>Última conexão</dt><dd id="d-seen">—</dd>
               </dl>
+              <div class="actions admin-only">
+                <button class="btn primary sm" id="d-screen">Acessar tela</button>
+              </div>
             </article>
 
             <div class="gauges">
@@ -316,6 +319,33 @@
       </div>
     </form>
   </dialog>
+
+  <!-- TELA REMOTA -->
+  <div id="rv" class="rv hidden" role="dialog" aria-label="Tela remota">
+    <div class="rv-bar">
+      <div class="rv-title"><span class="rv-dot" aria-hidden="true"></span><b id="rv-name"></b><span id="rv-stats" class="muted small"></span></div>
+      <div class="rv-tools">
+        <select id="rv-monitor" class="select hidden" aria-label="Monitor"></select>
+        <select id="rv-quality" class="select" aria-label="Qualidade e resolução">
+          <option value="low">Econômica · 960 px</option>
+          <option value="mid" selected>Equilibrada · 1280 px</option>
+          <option value="high">Alta · 1920 px</option>
+          <option value="max">Máxima · original</option>
+        </select>
+        <button id="rv-control" class="btn sm ghost" aria-pressed="false">Controle</button>
+        <button id="rv-keys" class="btn sm ghost">Teclas</button>
+        <button id="rv-kbd" class="btn sm ghost">Teclado</button>
+        <button id="rv-full" class="btn sm ghost">Tela cheia</button>
+        <button id="rv-close" class="btn sm danger">Encerrar</button>
+      </div>
+    </div>
+    <div id="rv-keypanel" class="rv-keypanel hidden"></div>
+    <div class="rv-stage">
+      <canvas id="rv-canvas" tabindex="0" aria-label="Tela do computador remoto"></canvas>
+      <div id="rv-msg" class="rv-msg"></div>
+    </div>
+    <input id="rv-ime" class="rv-ime" aria-hidden="true" tabindex="-1" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+  </div>
 
   <!-- MODAL DE USUÁRIO -->
   <dialog id="user-dialog" class="glass dialog wide">

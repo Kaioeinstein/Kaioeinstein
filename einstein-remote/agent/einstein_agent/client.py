@@ -30,6 +30,7 @@ from websockets.exceptions import ConnectionClosed, InvalidStatus
 from . import commands
 from .config import AgentConfig, config_path
 from .metrics import MetricsCollector, system_info
+from .screen import ScreenController, ScreenRefused
 
 log = logging.getLogger("einstein.agent")
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -64,8 +65,11 @@ def ssl_context(cfg: AgentConfig) -> ssl.SSLContext | None:
 
 
 class Agent:
-    def __init__(self, cfg: AgentConfig, on_status: Callable[[Status], None] | None = None):
+    def __init__(self, cfg: AgentConfig, on_status: Callable[[Status], None] | None = None,
+                 on_screen: Callable[[dict], None] | None = None):
         self.cfg = cfg
+        self.on_screen = on_screen
+        self.screen: ScreenController | None = None
         self.collector = MetricsCollector()
         self.on_status = on_status
         self.status = Status("starting")
@@ -163,9 +167,14 @@ class Agent:
                 raise AuthRejected(reply.get("error", "recusado"))
             self._set_status("online", reply.get("name", ""))
             log.info("Conectado como '%s'. Transmitindo métricas a cada %.1fs.", reply.get("name"), self.cfg.interval)
+            self.screen = ScreenController(
+                send_bytes=ws.send, send_json=lambda m: ws.send(json.dumps(m)), on_change=self.on_screen
+            )
+            self._inputs: asyncio.Queue = asyncio.Queue(maxsize=256)
             sender = asyncio.create_task(self._send_metrics(ws))
             receiver = asyncio.create_task(self._receive(ws))
             stopper = asyncio.create_task(self._stop.wait())
+            input_worker = asyncio.create_task(self._input_worker())
             tasks = {sender, receiver, stopper}
             try:
                 done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
@@ -177,13 +186,34 @@ class Agent:
             finally:
                 for t in tasks:
                     t.cancel()
+                input_worker.cancel()
+                await self.screen.close()  # solta teclas/botões, remove a faixa
         return True
 
     async def _receive(self, ws) -> None:
         async for raw in ws:
+            if isinstance(raw, bytes):
+                continue  # o servidor não envia binário ao agente
             msg = json.loads(raw)
-            if msg.get("type") == "command":
+            kind = msg.get("type")
+            if kind == "command":
                 asyncio.create_task(self._handle_command(ws, msg))
+            elif kind == "screen_ack":
+                self.screen.ack(msg.get("seq"))
+            elif kind == "input":
+                try:
+                    self._inputs.put_nowait(msg.get("events"))
+                except asyncio.QueueFull:
+                    log.warning("Fila de entrada cheia; eventos descartados")
+
+    async def _input_worker(self) -> None:
+        """Aplica eventos de mouse/teclado estritamente na ordem em que chegaram."""
+        while True:
+            events = await self._inputs.get()
+            try:
+                await self.screen.handle_input(events)
+            except Exception:
+                log.exception("Falha ao aplicar entrada remota")
 
     @staticmethod
     async def _close(ws, state: str) -> None:
@@ -206,10 +236,30 @@ class Agent:
             await ws.send(json.dumps({"type": "metrics", "data": data}))
             await asyncio.sleep(self.cfg.interval)
 
+    async def _screen_command(self, action: str, params: dict):
+        try:
+            if action == "screen.monitors":
+                return True, await self.screen.monitors(), None
+            if action == "screen.start":
+                return True, await self.screen.start(params), None
+            if action == "screen.stop":
+                return True, await self.screen.update_viewers(params), None
+        except ScreenRefused as exc:
+            return False, None, str(exc)
+        except Exception as exc:
+            log.exception("Falha no comando de tela %s", action)
+            return False, None, f"{type(exc).__name__}: {exc}"
+        return False, None, f"Ação '{action}' não suportada por este agente"
+
     async def _handle_command(self, ws, msg: dict) -> None:
         action = str(msg.get("action"))
-        log.info("Comando recebido: %s", action)
-        ok, data, error = await commands.execute(action, msg.get("params") or {})
+        params = msg.get("params") or {}
+        if action != "screen.stop":
+            log.info("Comando recebido: %s", action)
+        if action.startswith("screen."):
+            ok, data, error = await self._screen_command(action, params)
+        else:
+            ok, data, error = await commands.execute(action, params)
         try:
             await ws.send(json.dumps({"type": "result", "id": msg.get("id"), "ok": ok, "data": data, "error": error}))
         except ConnectionClosed:

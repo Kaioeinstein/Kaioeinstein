@@ -3,6 +3,7 @@ import * as API from "./api.js";
 import { LineChart } from "./charts.js";
 import { $, $$, ago, bytes, confirmDialog, dateTime, duration, esc, rate, toast } from "./util.js";
 import { Monitor } from "./monitor.js";
+import { RemoteViewer } from "./remote.js";
 
 // ----------------------------------------------------------------- utilidades
 // Estado do computador: online, offline (queda), pausado ou encerrado pelo dono no próprio PC
@@ -68,6 +69,7 @@ API.onSessionLostHandler(() => {
 });
 
 async function doLogout() {
+  remote?.teardown();
   state.live?.close();
   await API.logout().catch(() => {});
   showAuth();
@@ -85,6 +87,7 @@ const TITLES = {
   monitor: ["System Monitor", "Processos, aplicativos, serviços, hardware e rede em tempo real."],
 };
 let monitor = null;
+let remote = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -112,6 +115,7 @@ async function startApp() {
   $("#auth-view").classList.add("hidden");
   $("#app-view").classList.remove("hidden");
   applyRole(API.currentUser);
+  remote ??= new RemoteViewer({ live: () => state.live, device: (id) => state.devices.get(id) });
   monitor ??= new Monitor({ device: () => state.devices.get(state.selected), live: () => state.live, role: () => API.currentUser?.role });
 
   if (!charts.perf) {
@@ -347,6 +351,8 @@ function renderHero(d) {
   const status = $("#hero-status");
   const online = [...state.devices.values()].filter((x) => x.online).length;
   $("#sc-ping").disabled = !d?.online;
+  $("#sc-screen").disabled = !d?.online;
+  $("#d-screen").disabled = !d?.online;
   if (!d) {
     mon.classList.add("off");
     $("#hv-name").textContent = "Nenhum computador";
@@ -390,6 +396,8 @@ $("#sc-ping").addEventListener("click", async () => {
     out.textContent = e.message;
   }
 });
+$("#sc-screen").addEventListener("click", () => remote?.start(state.selected));
+$("#d-screen").addEventListener("click", () => remote?.start(state.selected));
 $("#sc-history").addEventListener("click", () => {
   if ($("#dash").classList.contains("hidden")) return toast("Vincule um computador para ver o histórico.", "warning");
   $("#hist-card").scrollIntoView({ behavior: "smooth", block: "start" });
