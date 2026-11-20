@@ -50,6 +50,7 @@
         <button data-view="devices"><i class="ic ic-pc"></i><span>Dispositivos</span></button>
         <button data-view="notifications"><i class="ic ic-bell"></i><span>Alertas</span><em id="notif-badge" class="badge hidden">0</em></button>
         <button data-view="security"><i class="ic ic-shield"></i><span>Segurança</span></button>
+        <button data-view="settings"><i class="ic ic-gear"></i><span>Ajustes</span></button>
       </nav>
       <div class="side-user">
         <div><b id="user-name"></b><small id="user-role"></small></div>
@@ -71,11 +72,42 @@
 
       <!-- PAINEL -->
       <section data-page="dashboard" class="page">
+        <article class="glass hero-banner">
+          <div class="hero-text">
+            <h2 class="hero-brand">EINSTEIN <span>REMOTE</span></h2>
+            <p class="tagline">Seu computador. Seu controle. Em qualquer lugar.</p>
+            <p class="hero-status" id="hero-status">Conectando…</p>
+            <div class="shortcuts">
+              <button class="shortcut" id="sc-ping"><i class="ic ic-bolt"></i><span>Testar latência</span><small id="ping-result">ida e volta</small></button>
+              <button class="shortcut" id="sc-history"><i class="ic ic-chart"></i><span>Histórico</span><small>1h · 24h · 7d</small></button>
+              <button class="shortcut admin-only" data-goto="devices"><i class="ic ic-pc"></i><span>Vincular PC</span><small>código único</small></button>
+              <button class="shortcut" data-goto="notifications"><i class="ic ic-bell"></i><span>Alertas</span><small id="sc-alerts">—</small></button>
+              <button class="shortcut" data-goto="security"><i class="ic ic-shield"></i><span>Sessões</span><small>segurança</small></button>
+              <button class="shortcut" data-goto="settings"><i class="ic ic-gear"></i><span>Ajustes</span><small>limites · usuários</small></button>
+            </div>
+          </div>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="monitor off" id="hero-monitor">
+              <div class="monitor-screen">
+                <div class="monitor-top"><b id="hv-name">—</b><span id="hv-status">offline</span></div>
+                <canvas id="hero-spark" height="70"></canvas>
+                <div class="mini-stats">
+                  <div><small>CPU</small><b id="hv-cpu">—</b><span class="mini-bar"><i id="hb-cpu"></i></span></div>
+                  <div><small>RAM</small><b id="hv-ram">—</b><span class="mini-bar green"><i id="hb-ram"></i></span></div>
+                  <div><small>DISCO</small><b id="hv-disk">—</b><span class="mini-bar green"><i id="hb-disk"></i></span></div>
+                  <div><small>REDE ↓</small><b id="hv-net">—</b><span class="mini-bar"><i id="hb-net"></i></span></div>
+                </div>
+              </div>
+              <div class="monitor-neck"></div><div class="monitor-base"></div>
+            </div>
+          </div>
+        </article>
+
         <div id="empty-devices" class="glass empty hidden">
           <div class="logo-mark" aria-hidden="true"></div>
-          <h2>Nenhum computador vinculado</h2>
-          <p class="muted">Gere um código de pareamento e execute o agente no seu PC Windows.</p>
-          <button class="btn primary" data-goto="devices">Vincular computador</button>
+          <h2 id="empty-title">Nenhum computador vinculado</h2>
+          <p class="muted" id="empty-text">Gere um código de pareamento e execute o agente no seu PC Windows.</p>
+          <button class="btn primary admin-only" data-goto="devices">Vincular computador</button>
         </div>
 
         <div id="dash" class="hidden">
@@ -97,10 +129,6 @@
                 <dt>Processos</dt><dd id="d-procs">—</dd>
                 <dt>Última conexão</dt><dd id="d-seen">—</dd>
               </dl>
-              <div class="actions">
-                <button class="btn ghost sm" id="ping-btn">Testar latência</button>
-                <span id="ping-result" class="muted small"></span>
-              </div>
             </article>
 
             <div class="gauges">
@@ -137,7 +165,7 @@
             </article>
           </div>
 
-          <article class="glass">
+          <article class="glass" id="hist-card">
             <div class="card-head"><h3>Histórico de desempenho</h3>
               <div class="seg" id="hist-range">
                 <button data-h="1" class="active">1h</button><button data-h="6">6h</button><button data-h="24">24h</button><button data-h="168">7d</button>
@@ -194,6 +222,61 @@
           <div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhe</th><th>IP</th><th></th></tr></thead><tbody id="audit-body"></tbody></table></div>
         </article>
       </section>
+      <!-- AJUSTES -->
+      <section data-page="settings" class="page hidden">
+        <div class="grid two">
+          <article class="glass">
+            <div class="card-head"><h3>Limites de alerta</h3><small class="muted" id="alerts-ro">somente administradores podem alterar</small></div>
+            <form id="alerts-form" class="form-grid">
+              <label class="range"><span>CPU acima de <output data-for="cpu_alert_percent"></output></span>
+                <input type="range" name="cpu_alert_percent" min="50" max="100" step="1"></label>
+              <label class="range"><span>Memória RAM acima de <output data-for="ram_alert_percent"></output></span>
+                <input type="range" name="ram_alert_percent" min="50" max="100" step="1"></label>
+              <label class="range"><span>Temperatura acima de <output data-for="temp_alert_celsius"></output></span>
+                <input type="range" name="temp_alert_celsius" min="50" max="110" step="1"></label>
+              <div class="row two-inputs">
+                <label>Sustentado por (segundos)<input type="number" name="alert_sustain_seconds" min="2" max="600" required></label>
+                <label>Intervalo entre alertas (min)<input type="number" name="alert_cooldown_minutes" min="1" max="1440" required></label>
+              </div>
+              <fieldset class="toggles">
+                <legend>Notificar quando</legend>
+                <label class="switch"><input type="checkbox" name="notify_device_online"><i></i>Computador conectar</label>
+                <label class="switch"><input type="checkbox" name="notify_device_offline"><i></i>Computador desconectar</label>
+                <label class="switch"><input type="checkbox" name="notify_high_cpu"><i></i>CPU elevada</label>
+                <label class="switch"><input type="checkbox" name="notify_high_ram"><i></i>RAM próxima do limite</label>
+                <label class="switch"><input type="checkbox" name="notify_high_temp"><i></i>Temperatura elevada</label>
+                <label class="switch"><input type="checkbox" name="notify_connection_failures"><i></i>Falhas de conexão do agente</label>
+                <label class="switch"><input type="checkbox" name="notify_commands"><i></i>Comandos executados</label>
+                <p class="hint">Tentativas de acesso não autorizadas são sempre notificadas.</p>
+              </fieldset>
+              <div class="row end"><button class="btn primary" type="submit" id="alerts-save">Salvar limites</button></div>
+            </form>
+          </article>
+
+          <article class="glass">
+            <div class="card-head"><h3>Minha conta</h3><span class="pill on" id="me-role">—</span></div>
+            <form id="password-form" class="form-grid">
+              <input type="text" autocomplete="username" id="pw-username" class="hidden" tabindex="-1">
+              <label>Senha atual<input type="password" name="current_password" autocomplete="current-password" required></label>
+              <label>Nova senha<input type="password" name="new_password" autocomplete="new-password" required></label>
+              <label>Confirmar nova senha<input type="password" name="confirm" autocomplete="new-password" required></label>
+              <p class="hint">Mínimo de 10 caracteres com 3 tipos (maiúsculas, minúsculas, números, símbolos). As outras sessões serão encerradas.</p>
+              <p class="error" id="pw-error" role="alert"></p>
+              <div class="row end"><button class="btn primary" type="submit">Alterar senha</button></div>
+            </form>
+          </article>
+        </div>
+
+        <article class="glass owner-only" id="users-card">
+          <div class="card-head"><h3>Usuários e permissões</h3><button class="btn primary sm" id="user-new">Novo usuário</button></div>
+          <div class="roles-help">
+            <span><b>Proprietário</b> controle total</span>
+            <span><b>Administrador</b> gerencia dispositivos, alertas e executa comandos</span>
+            <span><b>Observador</b> apenas visualiza</span>
+          </div>
+          <div id="user-list" class="list"></div>
+        </article>
+      </section>
     </main>
   </div>
 
@@ -205,6 +288,32 @@
       <div class="row end">
         <button class="btn ghost" value="cancel">Cancelar</button>
         <button class="btn danger" value="ok" id="confirm-ok">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- MODAL DE USUÁRIO -->
+  <dialog id="user-dialog" class="glass dialog wide">
+    <form id="user-form" class="form-grid">
+      <h3 id="user-dialog-title">Novo usuário</h3>
+      <label>Usuário<input name="username" required minlength="3" maxlength="64" pattern="[A-Za-z0-9_.\-]+" autocomplete="off"></label>
+      <label><span id="user-pass-label">Senha</span><input name="password" type="password" autocomplete="new-password"></label>
+      <label>Papel
+        <select name="role" class="select">
+          <option value="viewer">Observador — apenas visualiza</option>
+          <option value="admin">Administrador — gerencia e executa comandos</option>
+        </select>
+      </label>
+      <fieldset class="toggles">
+        <legend>Acesso aos computadores</legend>
+        <label class="radio"><input type="radio" name="access" value="all" checked> Todos os computadores (inclusive futuros)</label>
+        <label class="radio"><input type="radio" name="access" value="some"> Somente os selecionados</label>
+        <div id="user-devices" class="device-checks"></div>
+      </fieldset>
+      <p class="error" id="user-error" role="alert"></p>
+      <div class="row end">
+        <button class="btn ghost" type="button" id="user-cancel">Cancelar</button>
+        <button class="btn primary" type="submit">Salvar</button>
       </div>
     </form>
   </dialog>

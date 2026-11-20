@@ -119,7 +119,9 @@ const TITLES = {
   devices: ["Dispositivos", "Vincule, renomeie ou revogue computadores."],
   notifications: ["Alertas", "Eventos do sistema e de segurança."],
   security: ["Segurança", "Sessões ativas e registro de auditoria."],
+  settings: ["Ajustes", "Limites de alerta, sua conta, usuários e permissões."],
 };
+const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
   state.view = view;
@@ -131,6 +133,7 @@ function go(view) {
   if (view === "devices") renderDeviceList();
   if (view === "notifications") { renderNotifications(); markRead(); }
   if (view === "security") loadSecurity();
+  if (view === "settings") loadSettingsPage();
   if (view === "dashboard") Object.values(charts).forEach((c) => c.draw());
 }
 $$("#nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
@@ -143,13 +146,10 @@ document.addEventListener("click", (e) => {
 async function startApp() {
   $("#auth-view").classList.add("hidden");
   $("#app-view").classList.remove("hidden");
-  const u = API.currentUser;
-  $("#user-name").textContent = u.username;
-  $("#user-role").textContent = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" }[u.role] || u.role;
-  $("#audit-card").classList.toggle("hidden", u.role === "viewer");
-  $("#pair-form").closest("article").classList.toggle("hidden", u.role === "viewer");
+  applyRole(API.currentUser);
 
   if (!charts.perf) {
+    charts.spark = new LineChart($("#hero-spark"), { series: [{ key: "cpu", color: "purple" }, { key: "ram", color: "green" }], bare: true });
     charts.perf = new LineChart($("#chart-perf"), { series: [{ key: "cpu", color: "purple" }, { key: "ram", color: "green" }] });
     charts.net = new LineChart($("#chart-net"), { series: [{ key: "net_down", color: "green" }, { key: "net_up", color: "purple" }], max: "auto", format: (v) => rate(v).replace("/s", "") });
     charts.hist = new LineChart($("#chart-hist"), { series: [{ key: "cpu", color: "purple" }, { key: "ram", color: "green" }] });
@@ -163,6 +163,7 @@ async function startApp() {
   state.live = live;
   live.addEventListener("status", (e) => setLive(e.detail.online));
   live.addEventListener("hello", (e) => {
+    applyRole(e.detail.user);
     state.devices.clear();
     for (const d of e.detail.devices) state.devices.set(d.id, d);
     renderDeviceSelect();
@@ -206,6 +207,19 @@ async function startApp() {
   go(state.view);
 }
 
+// Ajusta a interface ao papel do usuário (o servidor sempre revalida tudo).
+function applyRole(u) {
+  if (!u) return;
+  document.body.classList.toggle("viewer", u.role === "viewer");
+  document.body.classList.toggle("not-owner", u.role !== "owner");
+  $("#user-name").textContent = u.username;
+  $("#user-role").textContent = ROLE_NAMES[u.role] || u.role;
+  $("#me-role").textContent = ROLE_NAMES[u.role] || u.role;
+  $("#pw-username").value = u.username;
+  $("#audit-card").classList.toggle("hidden", u.role === "viewer");
+  $("#pair-form").closest("article").classList.toggle("hidden", u.role === "viewer");
+}
+
 function setLive(online) {
   const el = $("#live-indicator");
   el.classList.toggle("off", !online);
@@ -239,7 +253,13 @@ function setGauge(id, value, sub, { warn = 75, crit = 90, unit = "%", max = 100 
 
 function renderDashboard(full) {
   const d = state.devices.get(state.selected);
+  renderHero(d);
   $("#empty-devices").classList.toggle("hidden", state.devices.size > 0);
+  const isAdmin = API.currentUser?.role !== "viewer";
+  $("#empty-title").textContent = isAdmin ? "Nenhum computador vinculado" : "Nenhum computador liberado";
+  $("#empty-text").textContent = isAdmin
+    ? "Gere um código de pareamento e execute o agente no seu PC Windows."
+    : "Sua conta ainda não tem acesso a nenhum computador. Peça ao proprietário para liberar em Ajustes › Usuários.";
   $("#dash").classList.toggle("hidden", !d);
   if (!d) return;
   const info = d.info || {};
@@ -256,7 +276,6 @@ function renderDashboard(full) {
   $("#d-uptime").textContent = d.online && m ? duration(m.uptime) : "—";
   $("#d-procs").textContent = d.online && m ? m.process_count : "—";
   $("#d-seen").textContent = d.online ? `Conectado desde ${dateTime(d.connected_at)}` : dateTime(d.last_seen);
-  $("#ping-btn").disabled = !d.online;
 
   if (d.online && m) {
     setGauge("#g-cpu", m.cpu.percent, m.cpu.freq_mhz ? `${(m.cpu.freq_mhz / 1000).toFixed(2)} GHz` : "");
@@ -322,7 +341,9 @@ const AUDIT_LABELS = {
   "device.paired": "Computador vinculado", "device.pair_failed": "Pareamento recusado", "device.renamed": "Computador renomeado",
   "device.revoked": "Computador revogado", "agent.connected": "Agente conectado", "agent.disconnected": "Agente desconectado",
   "agent.auth_failed": "Agente com credencial inválida", "command.sent": "Comando enviado", "command.result": "Comando concluído",
-  "command.rejected": "Comando recusado",
+  "command.rejected": "Comando recusado", "auth.password_changed": "Senha alterada",
+  "auth.password_change_failed": "Troca de senha recusada", "user.created": "Usuário criado",
+  "user.updated": "Usuário alterado", "user.deleted": "Usuário removido", "settings.updated": "Limites de alerta alterados",
 };
 function describeAudit(r) {
   let label = AUDIT_LABELS[r.action] || r.action;
@@ -345,16 +366,60 @@ $$("#hist-range button").forEach((b) => b.addEventListener("click", () => {
   loadHistory();
 }));
 
-$("#ping-btn").addEventListener("click", async () => {
+// ----------------------------------------------------------------- tela inicial (hero + atalhos)
+function setMini(id, pct) { $(id).style.width = `${Math.max(0, Math.min(100, pct ?? 0))}%`; }
+
+function renderHero(d) {
+  const mon = $("#hero-monitor");
+  const status = $("#hero-status");
+  const online = [...state.devices.values()].filter((x) => x.online).length;
+  $("#sc-ping").disabled = !d?.online;
+  if (!d) {
+    mon.classList.add("off");
+    $("#hv-name").textContent = "Nenhum computador";
+    $("#hv-status").textContent = "aguardando vínculo";
+    status.textContent = API.currentUser?.role === "viewer"
+      ? "Nenhum computador liberado para sua conta. Peça acesso ao proprietário."
+      : "Nenhum computador vinculado ainda — use o atalho “Vincular PC”.";
+    for (const k of ["cpu", "ram", "disk", "net"]) { $(`#hv-${k}`).textContent = "—"; setMini(`#hb-${k}`, 0); }
+    charts.spark?.set([]);
+    return;
+  }
+  const m = d.online ? d.metrics : null;
+  mon.classList.toggle("off", !d.online);
+  $("#hv-name").textContent = d.name;
+  $("#hv-status").textContent = d.online ? "online" : "offline";
+  status.innerHTML = `<span class="pill ${d.online ? "on" : "off"}">${d.online ? "Online" : "Offline"}</span>`
+    + `<span>${esc(d.name)}${m ? ` · ligado há ${esc(duration(m.uptime))}` : d.last_seen ? ` · visto em ${esc(dateTime(d.last_seen))}` : ""}</span>`
+    + `<span class="muted">· ${online} de ${state.devices.size} computador(es) online</span>`;
+  if (m) {
+    const sys = m.disks?.find((x) => x.system) || m.disks?.[0];
+    $("#hv-cpu").textContent = `${Math.round(m.cpu.percent)}%`; setMini("#hb-cpu", m.cpu.percent);
+    $("#hv-ram").textContent = `${Math.round(m.memory.percent)}%`; setMini("#hb-ram", m.memory.percent);
+    $("#hv-disk").textContent = sys ? `${Math.round(sys.percent)}%` : "—"; setMini("#hb-disk", sys?.percent);
+    $("#hv-net").textContent = rate(m.network.down_bps);
+    // escala logarítmica: 1 KB/s ≈ 0 %, 100 MB/s ≈ 100 %
+    setMini("#hb-net", m.network.down_bps > 1024 ? (Math.log10(m.network.down_bps / 1024) / 5) * 100 : 0);
+  } else {
+    for (const k of ["cpu", "ram", "disk", "net"]) { $(`#hv-${k}`).textContent = "—"; setMini(`#hb-${k}`, 0); }
+  }
+  charts.spark?.set((d.history || []).slice(-90));
+}
+
+$("#sc-ping").addEventListener("click", async () => {
   const out = $("#ping-result");
-  out.textContent = "Medindo…";
+  out.textContent = "medindo…";
   const t0 = performance.now();
   try {
     await state.live.command(state.selected, "ping");
-    out.textContent = `Ida e volta: ${Math.round(performance.now() - t0)} ms`;
+    out.textContent = `${Math.round(performance.now() - t0)} ms`;
   } catch (e) {
     out.textContent = e.message;
   }
+});
+$("#sc-history").addEventListener("click", () => {
+  if ($("#dash").classList.contains("hidden")) return toast("Vincule um computador para ver o histórico.", "warning");
+  $("#hist-card").scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 // ----------------------------------------------------------------- dispositivos
@@ -423,6 +488,7 @@ function updateBadge() {
   const b = $("#notif-badge");
   b.textContent = n > 99 ? "99+" : n;
   b.classList.toggle("hidden", n === 0);
+  $("#sc-alerts").textContent = n ? `${n} não lida(s)` : "tudo em dia";
 }
 function renderNotifications() {
   $("#notif-list").innerHTML = state.notifications.map((n) => feedItem(n.level, n.message, n.ts, !n.read)).join("") || `<li class="empty-li">Nenhuma notificação.</li>`;
@@ -482,6 +548,145 @@ async function loadAudit() {
     <td class="detail">${esc(r.detail || "")}</td><td>${esc(r.ip || "")}</td><td class="${r.success ? "ok" : "fail"}">${r.success ? "✔" : "✖"}</td></tr>`).join("");
 }
 $("#audit-refresh").addEventListener("click", loadAudit);
+
+// ----------------------------------------------------------------- ajustes
+const ALERT_FIELDS = ["cpu_alert_percent", "ram_alert_percent", "temp_alert_celsius", "alert_sustain_seconds", "alert_cooldown_minutes"];
+const UNITS = { cpu_alert_percent: "%", ram_alert_percent: "%", temp_alert_celsius: " °C" };
+
+function syncRange(input) {
+  const pct = ((input.value - input.min) / (input.max - input.min)) * 100;
+  input.style.setProperty("--fill", `${pct}%`);
+  const out = $(`output[data-for="${input.name}"]`);
+  if (out) out.textContent = `${input.value}${UNITS[input.name] || ""}`;
+}
+$$("#alerts-form input[type=range]").forEach((r) => r.addEventListener("input", () => syncRange(r)));
+
+async function loadSettingsPage() {
+  const form = $("#alerts-form");
+  const canEdit = API.currentUser.role !== "viewer";
+  try {
+    const s = await API.api("/api/settings");
+    for (const [k, v] of Object.entries(s)) {
+      const el = form.elements[k];
+      if (!el) continue;
+      if (el.type === "checkbox") el.checked = !!v; else el.value = v;
+      if (el.type === "range") syncRange(el);
+    }
+  } catch (err) { toast(err.message, "error"); }
+  $$("input, button", form).forEach((el) => (el.disabled = !canEdit));
+  $("#alerts-ro").classList.toggle("hidden", canEdit);
+  if (API.currentUser.role === "owner") loadUsers();
+}
+
+$("#alerts-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = {};
+  for (const k of ALERT_FIELDS) body[k] = Number(form.elements[k].value);
+  $$("input[type=checkbox]", form).forEach((c) => (body[c.name] = c.checked));
+  try {
+    await API.api("/api/settings", { method: "PUT", body });
+    toast("Limites de alerta salvos.");
+  } catch (err) { toast(err.message, "error"); }
+});
+
+$("#password-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const err = $("#pw-error");
+  err.textContent = "";
+  if (f.elements.new_password.value !== f.elements.confirm.value) { err.textContent = "As senhas não coincidem."; return; }
+  try {
+    const r = await API.api("/api/auth/password", { method: "POST", body: { current_password: f.elements.current_password.value, new_password: f.elements.new_password.value } });
+    f.reset();
+    toast(`Senha alterada. ${r.sessions_revoked} outra(s) sessão(ões) encerrada(s).`);
+  } catch (ex) { err.textContent = ex.message; }
+});
+
+// ----------------------------------------------------------------- usuários e permissões (proprietário)
+let users = [];
+let editingUser = null;
+
+function accessLabel(u) {
+  if (u.role === "owner" || u.all_devices) return "Todos os computadores";
+  const names = u.device_ids.map((id) => state.devices.get(id)?.name).filter(Boolean);
+  return names.length ? names.join(", ") : "Nenhum computador";
+}
+
+async function loadUsers() {
+  try { users = await API.api("/api/users"); } catch (err) { toast(err.message, "error"); return; }
+  $("#user-list").innerHTML = users.map((u) => `
+    <div class="list-item" data-uid="${u.id}">
+      <div class="meta">
+        <b>${esc(u.username)}<span class="role-tag ${esc(u.role)}">${esc(ROLE_NAMES[u.role])}</span></b>
+        <small>Acesso: ${esc(accessLabel(u))}</small>
+        <small>Criado em ${dateTime(u.created_at)} · último login ${u.last_login ? dateTime(u.last_login) : "nunca"}</small>
+      </div>
+      ${u.role === "owner" ? "" : `<div class="row"><button class="btn ghost sm" data-act="edit">Editar</button><button class="btn danger sm" data-act="delete">Remover</button></div>`}
+    </div>`).join("");
+}
+
+function syncAccessUI() {
+  const some = $("#user-form").elements.access.value === "some";
+  $("#user-devices").classList.toggle("disabled", !some);
+}
+
+function openUserDialog(u = null) {
+  editingUser = u;
+  const f = $("#user-form");
+  f.reset();
+  $("#user-error").textContent = "";
+  $("#user-dialog-title").textContent = u ? `Editar ${u.username}` : "Novo usuário";
+  $("#user-pass-label").textContent = u ? "Redefinir senha (opcional — encerra as sessões do usuário)" : "Senha inicial";
+  f.elements.username.value = u?.username || "";
+  f.elements.username.disabled = !!u;
+  f.elements.password.required = !u;
+  f.elements.role.value = u?.role || "viewer";
+  f.elements.access.value = !u || u.all_devices ? "all" : "some";
+  const allowed = new Set(u?.device_ids || []);
+  const list = [...state.devices.values()];
+  $("#user-devices").innerHTML = list.map((d) => `<label><input type="checkbox" value="${esc(d.id)}" ${allowed.has(d.id) ? "checked" : ""}> ${esc(d.name)}</label>`).join("")
+    || `<p class="hint">Nenhum computador vinculado ainda.</p>`;
+  syncAccessUI();
+  $("#user-dialog").showModal();
+}
+
+$("#user-form").addEventListener("change", (e) => { if (e.target.name === "access") syncAccessUI(); });
+$("#user-new").addEventListener("click", () => openUserDialog());
+$("#user-cancel").addEventListener("click", () => $("#user-dialog").close());
+
+$("#user-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const all = f.elements.access.value === "all";
+  const device_ids = $$("#user-devices input:checked").map((c) => c.value);
+  const body = { role: f.elements.role.value, all_devices: all, device_ids };
+  try {
+    if (editingUser) {
+      if (f.elements.password.value) body.new_password = f.elements.password.value;
+      await API.api(`/api/users/${editingUser.id}`, { method: "PATCH", body });
+      toast("Usuário atualizado. As conexões dele foram renovadas com as novas permissões.");
+    } else {
+      await API.api("/api/users", { method: "POST", body: { ...body, username: f.elements.username.value.trim(), password: f.elements.password.value } });
+      toast("Usuário criado.");
+    }
+    $("#user-dialog").close();
+    loadUsers();
+  } catch (err) { $("#user-error").textContent = err.message; }
+});
+
+$("#user-list").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-act]");
+  if (!btn) return;
+  const u = users.find((x) => x.id === Number(btn.closest("[data-uid]").dataset.uid));
+  if (btn.dataset.act === "edit") return openUserDialog(u);
+  if (!(await confirmDialog("Remover usuário", `"${u.username}" perderá o acesso imediatamente e todas as sessões dele serão encerradas.`, "Remover"))) return;
+  try {
+    await API.api(`/api/users/${u.id}`, { method: "DELETE" });
+    toast("Usuário removido.", "warning");
+    loadUsers();
+  } catch (err) { toast(err.message, "error"); }
+});
 
 // atualiza "tempo ligado" e relativos sem esperar novos dados
 setInterval(() => { if (state.view === "dashboard" && state.selected) { const d = state.devices.get(state.selected); if (d?.online && d.metrics) $("#d-uptime").textContent = duration(d.metrics.uptime + (Date.now() / 1000 - d.metrics.ts)); } }, 30000);

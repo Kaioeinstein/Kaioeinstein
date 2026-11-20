@@ -66,6 +66,11 @@ def public_user(user: dict) -> dict:
     return {"id": user["id"], "username": user["username"], "role": user["role"]}
 
 
+class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=1, max_length=256)
+
+
 def _issue_session(request: Request, response: Response, user: dict) -> dict:
     st = _state(request)
     sid = uuid.uuid4().hex
@@ -115,6 +120,7 @@ def setup(creds: Credentials, request: Request, response: Response):
     if err:
         raise HTTPException(422, err)
     uid = st.db.create_user(creds.username, security.hash_password(creds.password), "owner")
+    st.db.update_user(uid, last_login=time.time())
     user = st.db.get_user(uid)
     st.db.audit("auth.setup", user=user, ip=client_ip(request))
     return _issue_session(request, response, user)
@@ -138,6 +144,7 @@ async def login(creds: Credentials, request: Request, response: Response):
         raise HTTPException(401, "Usuário ou senha inválidos")
     for k in keys:
         st.limiter.reset(k)
+    st.db.update_user(user["id"], last_login=time.time())
     st.db.audit("auth.login", user=user, ip=ip)
     return _issue_session(request, response, user)
 
@@ -181,6 +188,26 @@ async def logout(request: Request, response: Response, user: dict = Depends(curr
 @router.get("/me")
 def me(user: dict = Depends(current_user)):
     return public_user(user)
+
+
+@router.post("/password")
+async def change_password(body: PasswordChange, request: Request, user: dict = Depends(current_user)):
+    """Troca a própria senha. Todas as outras sessões do usuário são encerradas."""
+    st = _state(request)
+    if not security.verify_password(body.current_password, user["password_hash"]):
+        st.db.audit("auth.password_change_failed", user=user, ip=client_ip(request), success=False)
+        raise HTTPException(403, "Senha atual incorreta")
+    err = security.validate_password_strength(body.new_password)
+    if err:
+        raise HTTPException(422, err)
+    if body.new_password == body.current_password:
+        raise HTTPException(422, "A nova senha deve ser diferente da atual.")
+    st.db.update_user(user["id"], password_hash=security.hash_password(body.new_password))
+    revoked = st.db.revoke_user_sessions(user["id"], except_sid=request.state.session_id)
+    for sid in revoked:
+        await st.hub.close_session(sid)
+    st.db.audit("auth.password_changed", user=user, detail={"sessions_revoked": len(revoked)}, ip=client_ip(request))
+    return {"ok": True, "sessions_revoked": len(revoked)}
 
 
 sessions_router = APIRouter(prefix="/api/sessions", tags=["sessions"])

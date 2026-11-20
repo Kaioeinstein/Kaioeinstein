@@ -21,7 +21,21 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('owner','admin','viewer')),
-    created_at REAL NOT NULL
+    created_at REAL NOT NULL,
+    all_devices INTEGER NOT NULL DEFAULT 1,
+    notif_read_upto INTEGER NOT NULL DEFAULT 0,
+    last_login REAL
+);
+
+CREATE TABLE IF NOT EXISTS user_devices (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, device_id)
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -100,6 +114,20 @@ class Database:
         self._lock = threading.RLock()
         with self._lock:
             self._conn.executescript(SCHEMA)
+            self._migrate()
+
+    # Migrações incrementais (bancos criados em versões anteriores) -----------
+    _USER_COLUMNS = {
+        "all_devices": "INTEGER NOT NULL DEFAULT 1",
+        "notif_read_upto": "INTEGER NOT NULL DEFAULT 0",
+        "last_login": "REAL",
+    }
+
+    def _migrate(self) -> None:
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(users)").fetchall()}
+        for name, ddl in self._USER_COLUMNS.items():
+            if name not in cols:
+                self._conn.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
 
     def close(self) -> None:
         with self._lock:
@@ -136,6 +164,61 @@ class Database:
     def get_user(self, user_id: int) -> dict | None:
         return self.one("SELECT * FROM users WHERE id = ?", (user_id,))
 
+    def get_owner(self) -> dict | None:
+        return self.one("SELECT * FROM users WHERE role = 'owner' ORDER BY id LIMIT 1")
+
+    def list_users(self) -> list[dict]:
+        users = self.all("SELECT id, username, role, created_at, all_devices, last_login FROM users ORDER BY id")
+        for u in users:
+            u["device_ids"] = self.user_device_ids(u["id"])
+        return users
+
+    def update_user(self, user_id: int, **fields) -> None:
+        allowed = {"role", "all_devices", "password_hash", "notif_read_upto", "last_login"}
+        fields = {k: v for k, v in fields.items() if k in allowed}
+        if not fields:
+            return
+        cols = ", ".join(f"{k} = ?" for k in fields)
+        self.execute(f"UPDATE users SET {cols} WHERE id = ?", (*fields.values(), user_id))
+
+    def delete_user(self, user_id: int) -> None:
+        """Remove o usuário. Dispositivos vinculados por ele passam ao proprietário."""
+        with self._lock:
+            owner = self.get_owner()
+            self.execute("UPDATE devices SET owner_id = ? WHERE owner_id = ?", (owner["id"], user_id))
+            self.execute("DELETE FROM pairing_codes WHERE user_id = ?", (user_id,))
+            self.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+    def user_device_ids(self, user_id: int) -> list[str]:
+        return [r["device_id"] for r in self.all("SELECT device_id FROM user_devices WHERE user_id = ?", (user_id,))]
+
+    def set_user_devices(self, user_id: int, device_ids: list[str]) -> None:
+        with self._lock:
+            self.execute("DELETE FROM user_devices WHERE user_id = ?", (user_id,))
+            for d in device_ids:
+                self.execute("INSERT OR IGNORE INTO user_devices (user_id, device_id) VALUES (?,?)", (user_id, d))
+
+    def grant_device(self, user_id: int, device_id: str) -> None:
+        self.execute("INSERT OR IGNORE INTO user_devices (user_id, device_id) VALUES (?,?)", (user_id, device_id))
+
+    def accessible_device_ids(self, user: dict) -> set[str] | None:
+        """None = acesso a todos os dispositivos."""
+        if user["role"] == "owner" or user.get("all_devices"):
+            return None
+        return set(self.user_device_ids(user["id"]))
+
+    # -- configurações --------------------------------------------------------
+    def get_settings(self) -> dict:
+        return {r["key"]: json.loads(r["value"]) for r in self.all("SELECT key, value FROM settings")}
+
+    def save_settings(self, values: dict) -> None:
+        with self._lock:
+            for k, v in values.items():
+                self.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (k, json.dumps(v)),
+                )
+
     # -- sessões -----------------------------------------------------------
     def create_session(self, sid: str, user_id: int, refresh_hash: str, ttl: int, ip: str | None, ua: str | None) -> None:
         now = time.time()
@@ -159,6 +242,13 @@ class Database:
 
     def revoke_session(self, sid: str) -> None:
         self.execute("UPDATE sessions SET revoked = 1 WHERE id = ?", (sid,))
+
+    def revoke_user_sessions(self, user_id: int, except_sid: str | None = None) -> list[str]:
+        rows = self.all("SELECT id FROM sessions WHERE user_id = ? AND revoked = 0", (user_id,))
+        ids = [r["id"] for r in rows if r["id"] != except_sid]
+        for sid in ids:
+            self.revoke_session(sid)
+        return ids
 
     def list_sessions(self, user_id: int) -> list[dict]:
         return self.all(
@@ -260,8 +350,8 @@ class Database:
     def list_notifications(self, limit: int = 50) -> list[dict]:
         return self.all("SELECT * FROM notifications ORDER BY id DESC LIMIT ?", (limit,))
 
-    def mark_notifications_read(self) -> None:
-        self.execute("UPDATE notifications SET read = 1 WHERE read = 0")
+    def last_notification_id(self) -> int:
+        return self.one("SELECT COALESCE(MAX(id), 0) AS n FROM notifications")["n"]
 
     # -- métricas ----------------------------------------------------------
     def add_metric(self, device_id: str, sample: dict) -> None:

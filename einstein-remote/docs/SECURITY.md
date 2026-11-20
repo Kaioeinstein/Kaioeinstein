@@ -21,13 +21,25 @@
 | PC perdido/roubado | Revogação do dispositivo no dashboard encerra a conexão e invalida a credencial |
 | Credencial no disco do PC | Segredo cifrado com **Windows DPAPI** (vinculado à conta do usuário) |
 | Interceptação | Agente recusa `ws://` fora de localhost; TLS 1.2+; suporte a CA própria (`--ca-file`) |
-| Comando malicioso | Allowlist + papel mínimo + confirmação explícita para ações críticas + auditoria |
+| Comando malicioso | Allowlist + papel mínimo + acesso ao dispositivo + confirmação explícita para ações críticas + auditoria |
+| Agente com credencial roubada/revogada | Conexão recusada, auditada e notificada ("falha de conexão") |
 | Credenciais em logs | Autenticação WS na primeira mensagem, não na URL |
 
-## Papéis
-- **owner** – tudo (criado na configuração inicial).
-- **admin** – gerencia dispositivos e executa comandos.
-- **viewer** – apenas visualiza (sem comandos, sem auditoria).
+## Papéis e permissões
+| Papel | Pode |
+|---|---|
+| **owner** (proprietário, único) | Tudo, inclusive criar/alterar/remover usuários. Não pode ser removido nem rebaixado. |
+| **admin** | Vincular/renomear/revogar dispositivos, alterar limites de alerta, ver auditoria, executar comandos |
+| **viewer** | Apenas visualizar métricas e notificações dos dispositivos liberados |
+
+**Acesso por dispositivo:** cada usuário (exceto o proprietário) tem acesso a *todos* os computadores ou só a uma lista.
+O filtro é aplicado no servidor em **todas** as saídas: REST (`/api/devices`, histórico, notificações), snapshot
+WebSocket, métricas em tempo real, eventos de dispositivo e comandos. Alertas globais de segurança (tentativas de login,
+agentes recusados) só chegam a administradores.
+
+Quando o proprietário altera papel, acesso ou senha de alguém, as conexões em tempo real desse usuário são encerradas
+e reabertas com as novas permissões; redefinição de senha e remoção encerram **todas** as sessões do usuário.
+Trocar a própria senha exige a senha atual e encerra as demais sessões.
 
 ## Produção — checklist
 - Rodar com HTTPS (`scripts/run-server.sh --tls`) e `EINSTEIN_COOKIE_SECURE=1`.

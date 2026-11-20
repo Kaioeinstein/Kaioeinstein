@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.1, Fase 1)
+# EINSTEIN REMOTE — Manual de utilização (v0.2, Fase 2)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -43,10 +43,15 @@ Instale `certs/ca.crt` como confiável no celular, ou use um domínio com certif
 | `einstein-agent uninstall` | Remove vínculo, configuração e auto‑início |
 
 ## 5. Painel
+- **Tela inicial:** marca, status do computador selecionado, monitor com mini‑gráfico e indicadores ao vivo, e atalhos (testar latência, histórico, vincular PC, alertas, sessões, ajustes).
 - **Painel:** status, sistema, hostname, IP, tempo ligado, CPU, RAM, GPU (NVIDIA), temperatura (quando o SO expõe sensores), discos, rede ↓/↑, núcleos, gráficos em tempo real, histórico (1h/6h/24h/7d), últimas atividades, teste de latência.
 - **Dispositivos:** gerar código, renomear, revogar.
 - **Alertas:** conexão/desconexão, CPU alta, RAM no limite, temperatura alta, tentativas de acesso; opção de alertas nativos do navegador.
 - **Segurança:** sessões ativas (revogar) e registro de auditoria.
+- **Ajustes:**
+  - *Limites de alerta* — CPU, RAM e temperatura; por quanto tempo o valor precisa se manter alto; intervalo mínimo entre alertas repetidos; quais eventos notificar (inclui "comandos executados"). Tentativas de acesso não autorizadas são sempre notificadas.
+  - *Minha conta* — troca de senha (encerra suas outras sessões).
+  - *Usuários e permissões* (só o proprietário) — criar Administradores e Observadores, escolher se acessam todos os computadores ou só alguns, redefinir senha, remover. As mudanças valem na hora, sem o usuário precisar sair.
 
 ### Celular
 Abra o endereço do servidor no navegador e use **Adicionar à tela inicial** — o EINSTEIN REMOTE MOBILE abre como app, com navegação inferior.
@@ -55,6 +60,7 @@ Abra o endereço do servidor no navegador e use **Adicionar à tela inicial** �
 - **Temperatura no Windows:** o Windows não expõe sensores de CPU via psutil; o painel mostra a temperatura da GPU NVIDIA quando houver. Integração com LibreHardwareMonitor está prevista na Fase 4.
 - **GPU:** uso medido via `nvidia-smi` (NVIDIA). AMD/Intel serão tratadas na Fase 4 (contadores de desempenho do Windows).
 - Tela remota, mouse/teclado, energia, processos e arquivos chegam nas Fases 4–7 e **ainda não aparecem** no painel.
+- As notificações aparecem no painel e como alerta nativo do navegador (com a página aberta em segundo plano). Push com o app fechado chega na Fase 8.
 
 ## 7. Variáveis de ambiente do servidor
 | Variável | Padrão | Descrição |

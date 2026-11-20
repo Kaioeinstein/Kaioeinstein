@@ -25,6 +25,8 @@ from .config import Settings, load_settings
 from .db import Database
 from .devices import router as devices_router
 from .hub import Hub
+from .preferences import Preferences
+from .users import router as users_router
 from .security import RateLimiter
 from .ws import router as ws_router
 
@@ -57,7 +59,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     db = Database(settings.db_path)
     app.state.settings = settings
     app.state.db = db
-    app.state.hub = Hub(db, settings)
+    app.state.prefs = Preferences(db)
+    app.state.hub = Hub(db, settings, app.state.prefs)
     app.state.limiter = RateLimiter(settings.max_login_failures, settings.lockout_seconds)
 
     @app.middleware("http")
@@ -81,6 +84,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth_router)
     app.include_router(sessions_router)
     app.include_router(devices_router)
+    app.include_router(users_router)
     app.include_router(ws_router)
 
     @app.exception_handler(404)

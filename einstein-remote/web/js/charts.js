@@ -30,7 +30,8 @@ export class LineChart {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const pad = { l: 46, r: 8, t: 10, b: 22 };
+    const bare = this.opts.bare;
+    const pad = bare ? { l: 2, r: 6, t: 6, b: 4 } : { l: 46, r: 8, t: 10, b: 22 };
     const iw = w - pad.l - pad.r;
     const ih = h - pad.t - pad.b;
     let max = this.opts.max;
@@ -48,11 +49,11 @@ export class LineChart {
     for (let i = 0; i <= 4; i++) {
       const y = pad.t + (ih * i) / 4;
       ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
-      ctx.fillText(this.opts.format(max * (1 - i / 4)), 2, y + 4);
+      if (!bare) ctx.fillText(this.opts.format(max * (1 - i / 4)), 2, y + 4);
     }
     if (this.data.length < 2) {
       ctx.fillStyle = "#6b6b80";
-      ctx.fillText("Aguardando dados…", pad.l + 10, pad.t + ih / 2);
+      if (!bare) ctx.fillText("Aguardando dados…", pad.l + 10, pad.t + ih / 2);
       return;
     }
     const t0 = this.data[0].ts;
@@ -62,7 +63,7 @@ export class LineChart {
 
     // eixo do tempo
     ctx.fillStyle = "#6b6b80";
-    for (let i = 0; i <= 3; i++) {
+    for (let i = 0; i <= 3 && !bare; i++) {
       const t = t0 + (span * i) / 3;
       const label = new Date(t * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", ...(span < 600 ? { second: "2-digit" } : {}) });
       const x = pad.l + (iw * i) / 3;

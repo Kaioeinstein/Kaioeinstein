@@ -36,14 +36,17 @@ inferior, gauges 2×2), instalável pela opção "Adicionar à tela inicial" —
 | `security.py` | scrypt, JWT, tokens opacos, códigos de pareamento, rate limiter |
 | `db.py` | Única camada que toca o SQLite (facilita migração para PostgreSQL) |
 | `auth.py` | Setup inicial, login, refresh com rotação, logout, sessões |
-| `devices.py` | Pareamento, dispositivos, histórico, notificações, auditoria |
-| `hub.py` | Conexões em tempo real, allowlist de ações, alertas, comandos pendentes |
+| `devices.py` | Pareamento, dispositivos, histórico, notificações (lidas por usuário), auditoria |
+| `users.py` | Usuários, papéis, acesso por dispositivo, configurações de alertas |
+| `preferences.py` | Limites e tipos de notificação persistidos no banco |
+| `hub.py` | Conexões em tempo real filtradas por permissão, allowlist de ações, alertas configuráveis, comandos pendentes |
 | `ws.py` | Endpoints `/ws/agent` e `/ws/client` |
 | `main.py` | App, cabeçalhos de segurança, arquivos estáticos, tarefas periódicas |
 
 ## Banco de dados (SQLite)
 
-`users`, `sessions`, `devices`, `pairing_codes`, `audit_log`, `notifications`, `metrics`.
+`users`, `user_devices`, `sessions`, `devices`, `pairing_codes`, `audit_log`, `notifications`, `metrics`, `settings`.
+Colunas novas são adicionadas automaticamente na inicialização (migração sem perda de dados).
 Senhas, refresh tokens, segredos de dispositivo e códigos de pareamento são guardados
 **apenas como hash**.
 
@@ -71,7 +74,7 @@ Toda conexão se autentica na **primeira mensagem** (nunca na URL):
 
 ### Fluxo de um comando
 1. Cliente envia `command` → servidor revalida a sessão no banco.
-2. Servidor confere **allowlist** (`hub.ALLOWED_ACTIONS`), **papel** mínimo e **confirmação** (ações críticas).
+2. Servidor confere **allowlist** (`hub.ALLOWED_ACTIONS`), **papel** mínimo, **acesso ao dispositivo** e **confirmação** (ações críticas).
 3. Registra `command.sent` na auditoria, responde `ack` e encaminha ao agente.
 4. Agente confere a **sua própria allowlist** (`commands.REGISTRY`) e executa.
 5. Resultado volta ao cliente que pediu; `command.result` é auditado. Timeout: 30 s.
@@ -83,8 +86,8 @@ Defesa em profundidade: mesmo com o servidor comprometido, o agente só executa 
 | Fase | Entrega | Status |
 |---|---|---|
 | 1 | Arquitetura, estrutura, servidor, auth, pareamento, agente, métricas em tempo real, dashboard base, testes | ✅ concluída |
-| 2 | Refinamento do Dashboard (tela inicial, atalhos, gerenciamento de usuários e permissões, config. de alertas) | próxima |
-| 3 | Agente Windows: ícone na bandeja (pausar/retomar/sair), log local, empacotamento .exe | |
+| 2 | Tela inicial com atalhos, usuários e permissões por dispositivo, limites de alerta configuráveis, troca de senha | ✅ concluída |
+| 3 | Agente Windows: ícone na bandeja (pausar/retomar/sair), log local, empacotamento .exe | próxima |
 | 4 | SYSTEM MONITOR: processos, apps abertos, serviços, hardware, rede; encerrar processo com confirmação | |
 | 5 | Tela em tempo real (captura DXGI/mss → JPEG/WebP), mouse e teclado (SendInput), tela cheia, consentimento visível | |
 | 6 | Energia: desligar, reiniciar, suspender, hibernar, cancelar (`shutdown /a`) com confirmação | |

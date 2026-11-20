@@ -31,4 +31,4 @@ cd agent && pip install . && einstein-agent pair --server http://127.0.0.1:8000 
 - [Modelo de segurança](docs/SECURITY.md)
 - [Manual de utilização](docs/MANUAL.md)
 
-**Status:** Fase 1 concluída — métricas reais em tempo real, autenticação, pareamento, notificações, auditoria. 21 testes automatizados.
+**Status:** Fase 2 concluída — tela inicial com atalhos, usuários e permissões por dispositivo, limites de alerta configuráveis, troca de senha. 34 testes automatizados.

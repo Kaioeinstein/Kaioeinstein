@@ -7,7 +7,9 @@ O servidor atua como *relay* autenticado entre:
 * **Clientes** (dashboard web / mobile) – navegadores autenticados.
 
 Nenhum comando chega a um agente sem passar pela verificação de sessão,
-papel (role), lista de ações permitidas e confirmação (para ações críticas).
+papel (role), acesso ao dispositivo, lista de ações permitidas e
+confirmação (para ações críticas). Cada cliente só recebe dados dos
+dispositivos que tem permissão para ver.
 """
 from __future__ import annotations
 
@@ -16,11 +18,11 @@ import time
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any
 
 from fastapi import WebSocket
 
 from .db import Database
+from .preferences import Preferences
 
 # Ações que o servidor aceita encaminhar. Cada fase adiciona novas entradas.
 # value = (papel mínimo, exige confirmação explícita)
@@ -32,6 +34,10 @@ ALLOWED_ACTIONS: dict[str, tuple[str, bool]] = {
 ROLE_LEVEL = {"viewer": 0, "admin": 1, "owner": 2}
 
 HISTORY_LEN = 300  # amostras em memória por dispositivo (~10 min a cada 2 s)
+
+
+def role_at_least(user: dict, role: str) -> bool:
+    return ROLE_LEVEL.get(user["role"], -1) >= ROLE_LEVEL[role]
 
 
 def summarize(metrics: dict) -> dict:
@@ -62,8 +68,7 @@ class AgentConn:
     last_metrics: dict | None = None
     history: deque = field(default_factory=lambda: deque(maxlen=HISTORY_LEN))
     last_persist: float = 0.0
-    cpu_high_streak: int = 0
-    ram_high_streak: int = 0
+    high_since: dict[str, float] = field(default_factory=dict)
     last_alert: dict[str, float] = field(default_factory=dict)
 
 
@@ -72,6 +77,17 @@ class ClientConn:
     ws: WebSocket
     user: dict
     session_id: str
+    access: set[str] | None = None  # None = todos os dispositivos
+
+    def can_see(self, device_id: str | None) -> bool:
+        if device_id is None:
+            return True
+        return self.access is None or device_id in self.access
+
+    def can_see_note(self, note: dict) -> bool:
+        if note.get("device_id"):
+            return self.can_see(note["device_id"])
+        return role_at_least(self.user, "admin")  # alertas de segurança globais
 
 
 @dataclass
@@ -83,13 +99,15 @@ class PendingCommand:
 
 
 class Hub:
-    def __init__(self, db: Database, settings):
+    def __init__(self, db: Database, settings, prefs: Preferences):
         self.db = db
         self.settings = settings
+        self.prefs = prefs
         self.agents: dict[str, AgentConn] = {}
         self.clients: set[ClientConn] = set()
         self.pending: dict[str, PendingCommand] = {}
         self._lock = asyncio.Lock()
+        self._global_alerts: dict[str, float] = {}
 
     # -- envio seguro --------------------------------------------------------
     @staticmethod
@@ -100,14 +118,29 @@ class Hub:
         except Exception:  # conexão já encerrada
             return False
 
-    async def broadcast(self, msg: dict) -> None:
-        dead = [c for c in list(self.clients) if not await self._send(c.ws, msg)]
-        for c in dead:
-            self.clients.discard(c)
+    async def broadcast(self, msg: dict, device_id: str | None = None) -> None:
+        targets = [c for c in list(self.clients) if c.can_see(device_id)]
+        for c in targets:
+            if not await self._send(c.ws, msg):
+                self.clients.discard(c)
 
     async def notify(self, level: str, kind: str, message: str, device_id: str | None = None) -> None:
         note = self.db.add_notification(level, kind, message, device_id)
-        await self.broadcast({"type": "notification", "data": note})
+        for c in [c for c in list(self.clients) if c.can_see_note(note)]:
+            if not await self._send(c.ws, {"type": "notification", "data": note}):
+                self.clients.discard(c)
+
+    def _cooldown_ok(self, store: dict[str, float], key: str) -> bool:
+        now = time.time()
+        if now - store.get(key, 0) < self.prefs["alert_cooldown_minutes"] * 60:
+            return False
+        store[key] = now
+        return True
+
+    async def connection_failure(self, key: str, message: str, device_id: str | None = None) -> None:
+        """Notifica falhas de conexão/autenticação de agentes (com cooldown por origem)."""
+        if self.prefs["notify_connection_failures"] and self._cooldown_ok(self._global_alerts, key):
+            await self.notify("critical", "connection_failure", message, device_id)
 
     # -- snapshot para clientes ------------------------------------------------
     def device_view(self, row: dict) -> dict:
@@ -121,8 +154,8 @@ class Hub:
             "history": list(conn.history) if conn else [],
         }
 
-    def snapshot(self) -> list[dict]:
-        return [self.device_view(d) for d in self.db.list_devices()]
+    def snapshot(self, access: set[str] | None) -> list[dict]:
+        return [self.device_view(d) for d in self.db.list_devices() if access is None or d["id"] in access]
 
     # -- agentes ---------------------------------------------------------------
     async def agent_connected(self, device: dict, ws: WebSocket, info: dict) -> AgentConn:
@@ -137,8 +170,11 @@ class Hub:
                 pass
         self.db.update_device_seen(device["id"], info.get("hostname"), info.get("os"))
         self.db.audit("agent.connected", device_id=device["id"], detail={"hostname": info.get("hostname")})
-        await self.broadcast({"type": "device", "data": self.device_view(self.db.get_device_public(device["id"]))})
-        await self.notify("info", "device_online", f"{device['name']} conectado", device["id"])
+        await self.broadcast(
+            {"type": "device", "data": self.device_view(self.db.get_device_public(device["id"]))}, device["id"]
+        )
+        if self.prefs["notify_device_online"]:
+            await self.notify("info", "device_online", f"{device['name']} conectado", device["id"])
         return conn
 
     async def agent_disconnected(self, conn: AgentConn) -> None:
@@ -155,10 +191,11 @@ class Hub:
                 self.pending.pop(cid, None)
                 await self._send(p.client.ws, {"type": "result", "id": cid, "ok": False, "error": "Agente desconectado"})
         if device and device["revoked"]:
-            await self.broadcast({"type": "device_removed", "device_id": conn.device_id})
+            await self.broadcast({"type": "device_removed", "device_id": conn.device_id}, conn.device_id)
         elif device:
-            await self.broadcast({"type": "device", "data": self.device_view(device)})
-            await self.notify("warning", "device_offline", f"{device['name']} desconectado", conn.device_id)
+            await self.broadcast({"type": "device", "data": self.device_view(device)}, conn.device_id)
+            if self.prefs["notify_device_offline"]:
+                await self.notify("warning", "device_offline", f"{device['name']} desconectado", conn.device_id)
 
     async def agent_metrics(self, conn: AgentConn, metrics: dict) -> None:
         summary = summarize(metrics)
@@ -169,27 +206,28 @@ class Hub:
             conn.last_persist = now
             self.db.add_metric(conn.device_id, summary)
             self.db.update_device_seen(conn.device_id)
-        await self.broadcast({"type": "metrics", "device_id": conn.device_id, "data": metrics, "summary": summary})
+        await self.broadcast(
+            {"type": "metrics", "device_id": conn.device_id, "data": metrics, "summary": summary}, conn.device_id
+        )
         await self._check_alerts(conn, summary)
 
-    async def _alert(self, conn: AgentConn, kind: str, level: str, message: str) -> None:
-        now = time.time()
-        if now - conn.last_alert.get(kind, 0) < self.settings.alert_cooldown:
-            return
-        conn.last_alert[kind] = now
-        await self.notify(level, kind, message, conn.device_id)
-
     async def _check_alerts(self, conn: AgentConn, s: dict) -> None:
-        name = conn.info.get("hostname", conn.device_id)
-        cpu, ram, temp = s.get("cpu"), s.get("ram"), s.get("temp")
-        conn.cpu_high_streak = conn.cpu_high_streak + 1 if cpu is not None and cpu >= self.settings.cpu_alert_percent else 0
-        conn.ram_high_streak = conn.ram_high_streak + 1 if ram is not None and ram >= self.settings.ram_alert_percent else 0
-        if conn.cpu_high_streak == 5:  # ~10 s sustentado
-            await self._alert(conn, "high_cpu", "warning", f"{name}: uso de CPU elevado ({cpu:.0f}%)")
-        if conn.ram_high_streak == 5:
-            await self._alert(conn, "high_ram", "warning", f"{name}: memória RAM próxima do limite ({ram:.0f}%)")
-        if temp is not None and temp >= self.settings.temp_alert_celsius:
-            await self._alert(conn, "high_temp", "critical", f"{name}: temperatura elevada ({temp:.0f} °C)")
+        p = self.prefs
+        device = self.db.get_device_public(conn.device_id)
+        name = device["name"] if device else conn.device_id
+        now = time.time()
+        checks = [
+            ("high_cpu", s.get("cpu"), p["cpu_alert_percent"], "warning", "uso de CPU elevado ({v:.0f}%)"),
+            ("high_ram", s.get("ram"), p["ram_alert_percent"], "warning", "memória RAM próxima do limite ({v:.0f}%)"),
+            ("high_temp", s.get("temp"), p["temp_alert_celsius"], "critical", "temperatura elevada ({v:.0f} °C)"),
+        ]
+        for kind, value, limit, level, text in checks:
+            if value is None or value < limit:
+                conn.high_since.pop(kind, None)
+                continue
+            since = conn.high_since.setdefault(kind, now)
+            if now - since >= p["alert_sustain_seconds"] and p[f"notify_{kind}"] and self._cooldown_ok(conn.last_alert, kind):
+                await self.notify(level, kind, f"{name}: " + text.format(v=value), conn.device_id)
 
     # -- comandos --------------------------------------------------------------
     async def send_command(self, client: ClientConn, msg: dict) -> None:
@@ -200,15 +238,18 @@ class Hub:
 
         async def reject(error: str) -> None:
             self.db.audit(
-                "command.rejected", user=client.user, device_id=device_id, detail={"action": action, "error": error}, success=False
+                "command.rejected", user=client.user, device_id=device_id if isinstance(device_id, str) else None,
+                detail={"action": action, "error": error}, success=False,
             )
             await self._send(client.ws, {"type": "result", "request_id": req_id, "ok": False, "error": error})
 
         if action not in ALLOWED_ACTIONS:
             return await reject("Ação não permitida")
         min_role, needs_confirm = ALLOWED_ACTIONS[action]
-        if ROLE_LEVEL.get(client.user["role"], -1) < ROLE_LEVEL[min_role]:
+        if not role_at_least(client.user, min_role):
             return await reject("Permissão insuficiente")
+        if not isinstance(device_id, str) or not client.can_see(device_id):
+            return await reject("Sem acesso a este dispositivo")
         if needs_confirm and msg.get("confirm") is not True:
             return await reject("Ação crítica exige confirmação")
         if not isinstance(params, dict):
@@ -242,6 +283,12 @@ class Hub:
             pending.client.ws,
             {"type": "result", "id": cmd_id, "ok": ok, "data": msg.get("data"), "error": msg.get("error")},
         )
+        if self.prefs["notify_commands"]:
+            status = "executado" if ok else f"falhou ({msg.get('error')})"
+            await self.notify(
+                "info" if ok else "warning", "command",
+                f"Comando '{pending.action}' {status} por {pending.client.user['username']}", conn.device_id,
+            )
 
     async def expire_pending(self) -> None:
         now = time.time()
@@ -251,13 +298,20 @@ class Hub:
                 await self._send(p.client.ws, {"type": "result", "id": cid, "ok": False, "error": "Tempo esgotado"})
 
     # -- revogação -------------------------------------------------------------
-    async def close_session(self, session_id: str) -> None:
-        for c in [c for c in list(self.clients) if c.session_id == session_id]:
+    async def _close_clients(self, clients: list[ClientConn], reason: str) -> None:
+        for c in clients:
             self.clients.discard(c)
             try:
-                await c.ws.close(code=4401, reason="sessão revogada")
+                await c.ws.close(code=4401, reason=reason)
             except Exception:
                 pass
+
+    async def close_session(self, session_id: str) -> None:
+        await self._close_clients([c for c in list(self.clients) if c.session_id == session_id], "sessão revogada")
+
+    async def close_user(self, user_id: int) -> None:
+        """Encerra as conexões do usuário (o navegador reconecta com permissões atualizadas)."""
+        await self._close_clients([c for c in list(self.clients) if c.user["id"] == user_id], "permissões alteradas")
 
     async def close_device(self, device_id: str) -> None:
         conn = self.agents.get(device_id)

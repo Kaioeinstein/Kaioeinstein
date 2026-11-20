@@ -49,10 +49,6 @@ class Settings:
     cookie_secure: bool = False
     max_login_failures: int = 5
     lockout_seconds: int = 5 * 60
-    cpu_alert_percent: float = 90.0
-    ram_alert_percent: float = 90.0
-    temp_alert_celsius: float = 85.0
-    alert_cooldown: int = 10 * 60
     history_persist_interval: int = 60
     allowed_origins: list[str] = field(default_factory=list)
 

@@ -36,11 +36,10 @@ async def agent_socket(ws: WebSocket):
     device = st.db.get_device(str(msg.get("device_id", ""))) if msg else None
     secret = str(msg.get("secret", "")) if msg else ""
     if not device or device["revoked"] or not security.tokens_equal(device["secret_hash"], security.hash_token(secret)):
-        st.db.audit(
-            "agent.auth_failed",
-            device_id=(msg or {}).get("device_id") if isinstance((msg or {}).get("device_id"), str) else None,
-            ip=ws.client.host if ws.client else None,
-            success=False,
+        ip = ws.client.host if ws.client else "?"
+        st.db.audit("agent.auth_failed", device_id=device["id"] if device else None, ip=ip, success=False)
+        await st.hub.connection_failure(
+            f"agent_auth:{ip}", f"Agente recusado: credencial inválida ou revogada (IP {ip})", device["id"] if device else None
         )
         await ws.send_json({"type": "auth_error", "error": "Credenciais do dispositivo inválidas"})
         await ws.close(code=4401)
@@ -85,9 +84,10 @@ async def client_socket(ws: WebSocket):
         await ws.close(code=4401)
         return
 
-    client = ClientConn(ws=ws, user=user, session_id=session["id"])
+    access = st.db.accessible_device_ids(user)
+    client = ClientConn(ws=ws, user=user, session_id=session["id"], access=access)
     st.hub.clients.add(client)
-    await ws.send_json({"type": "hello", "user": public_user(user), "devices": st.hub.snapshot()})
+    await ws.send_json({"type": "hello", "user": public_user(user), "devices": st.hub.snapshot(access)})
     try:
         while True:
             data = await ws.receive_json()
