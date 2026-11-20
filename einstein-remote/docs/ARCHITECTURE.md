@@ -19,7 +19,7 @@ local), num Raspberry Pi, ou numa VPS com HTTPS para acesso de qualquer lugar.
 | Componente | Pasta | Tecnologia | Responsabilidade |
 |---|---|---|---|
 | Servidor | `server/app` | Python 3.10+, FastAPI, Uvicorn, SQLite, PyJWT | Autenticação, sessões, vínculo de dispositivos, relay WebSocket, alertas, auditoria, histórico |
-| Agente | `agent/einstein_agent` | Python 3.10+, psutil, websockets (migrável para C#) | Coleta de métricas, execução de comandos da allowlist, pareamento, pausa/auto‑início |
+| Agente | `agent/einstein_agent` | Python 3.10+, psutil, websockets, pystray, tkinter (migrável para C#) | Coleta de métricas, comandos da allowlist, pareamento, ícone na bandeja, pausa, auto‑início, log local |
 | Dashboard + Mobile | `web/` | HTML, CSS, JavaScript (ES modules), Canvas | Interface responsiva única (PWA instalável no celular) |
 
 ### Por que não React?
@@ -43,6 +43,27 @@ inferior, gauges 2×2), instalável pela opção "Adicionar à tela inicial" —
 | `ws.py` | Endpoints `/ws/agent` e `/ws/client` |
 | `main.py` | App, cabeçalhos de segurança, arquivos estáticos, tarefas periódicas |
 
+## Módulos do agente
+
+| Arquivo | Função |
+|---|---|
+| `client.py` | Conexão WSS, reconexão com espera progressiva, **estados** observáveis (`connecting`, `online`, `offline`, `paused`, `rejected`, `stopped`) e aviso ao servidor do motivo de desconexão |
+| `runner.py` | Executa o agente numa thread própria (usado pela bandeja) |
+| `tray.py` | Ícone na bandeja: cor = estado; menu pausar/retomar, abrir painel, início com o Windows, log, desvincular, sair |
+| `pair_window.py` | Janela de vinculação (servidor, código, CA própria) |
+| `pairing.py` | Vinculação/desvinculação compartilhada por CLI e janela |
+| `logs.py` | Log rotativo (1 MB × 5) em `%LOCALAPPDATA%\EinsteinRemote\logs` |
+| `singleton.py` | Impede dois agentes no mesmo usuário |
+| `icons.py` | Ícones gerados em código (bandeja e `.ico` do executável) |
+| `dialogs.py` | Caixas de mensagem nativas do Windows |
+| `cli.py` | `tray`, `pair`, `run`, `status`, `pause`, `resume`, `logs`, `autostart`, `uninstall` |
+
+### Distribuição
+`installer/agent.spec` (PyInstaller, modo pasta) gera `EinsteinRemoteAgent.exe` (bandeja, sem console) e
+`einstein-agent.exe` (linha de comando). O workflow `.github/workflows/einstein-remote.yml` roda os testes em
+Linux e Windows, gera o executável no Windows, executa `installer/smoke_exe.py` contra um servidor real e publica
+o `.zip` como artefato.
+
 ## Banco de dados (SQLite)
 
 `users`, `user_devices`, `sessions`, `devices`, `pairing_codes`, `audit_log`, `notifications`, `metrics`, `settings`.
@@ -59,6 +80,7 @@ Toda conexão se autentica na **primeira mensagem** (nunca na URL):
 {"type":"auth","device_id":"…","secret":"…","info":{hostname, os, cpu_model, ip, …}}
 {"type":"metrics","data":{ts, cpu:{percent,per_core,freq_mhz}, memory:{…}, disks:[…], network:{down_bps,up_bps}, gpu:[…], temperatures:{max,sensors}, uptime, process_count}}
 {"type":"result","id":"<cmd>","ok":true,"data":{…},"error":null}
+{"type":"status","state":"paused"|"stopping"}   // antes de fechar por decisão do proprietário
 
 // servidor → agente
 {"type":"command","id":"<cmd>","action":"ping","params":{}}
@@ -87,8 +109,8 @@ Defesa em profundidade: mesmo com o servidor comprometido, o agente só executa 
 |---|---|---|
 | 1 | Arquitetura, estrutura, servidor, auth, pareamento, agente, métricas em tempo real, dashboard base, testes | ✅ concluída |
 | 2 | Tela inicial com atalhos, usuários e permissões por dispositivo, limites de alerta configuráveis, troca de senha | ✅ concluída |
-| 3 | Agente Windows: ícone na bandeja (pausar/retomar/sair), log local, empacotamento .exe | próxima |
-| 4 | SYSTEM MONITOR: processos, apps abertos, serviços, hardware, rede; encerrar processo com confirmação | |
+| 3 | Agente Windows: bandeja, janela de vinculação, log local, instância única, estados pausado/encerrado no painel, `.exe` + CI Windows | ✅ concluída |
+| 4 | SYSTEM MONITOR: processos, apps abertos, serviços, hardware, rede; encerrar processo com confirmação | próxima |
 | 5 | Tela em tempo real (captura DXGI/mss → JPEG/WebP), mouse e teclado (SendInput), tela cheia, consentimento visível | |
 | 6 | Energia: desligar, reiniciar, suspender, hibernar, cancelar (`shutdown /a`) com confirmação | |
 | 7 | Arquivos: navegação restrita a pastas autorizadas, upload/download em blocos com verificação SHA‑256 | |

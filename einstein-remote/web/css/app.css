@@ -199,6 +199,7 @@ label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
 .pill.on { color: var(--green); background: rgba(34, 227, 160, .1); }
 .pill.off { color: var(--red); background: rgba(255, 77, 109, .1); }
+.pill.pause { color: var(--amber); background: rgba(245, 181, 68, .12); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; font-size: 13.5px; }
 .kv dt { color: var(--muted); }
 .kv dd { margin: 0; text-align: right; overflow-wrap: anywhere; }

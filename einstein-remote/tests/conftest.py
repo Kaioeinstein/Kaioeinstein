@@ -28,3 +28,10 @@ def owner(client):
     assert r.status_code == 200, r.text
     token = r.json()["access_token"]
     return {"Authorization": f"Bearer {token}", **XHR}, token
+
+
+@pytest.fixture(autouse=True)
+def isolated_agent_dirs(tmp_path, monkeypatch):
+    """Config e log do agente sempre em pastas temporárias (nunca no perfil real)."""
+    monkeypatch.setenv("EINSTEIN_AGENT_DIR", str(tmp_path / "agent"))
+    monkeypatch.setenv("EINSTEIN_AGENT_LOG_DIR", str(tmp_path / "agent-logs"))

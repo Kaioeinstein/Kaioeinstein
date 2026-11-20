@@ -6,6 +6,11 @@ const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => [...root.querySelectorAll(s)];
 
 // ----------------------------------------------------------------- utilidades
+// Estado do computador: online, offline (queda), pausado ou encerrado pelo dono no próprio PC
+const STATE_LABELS = { online: ["Online", "on"], paused: ["Pausado no PC", "pause"], stopped: ["Agente encerrado", "pause"], offline: ["Offline", "off"] };
+const stateOf = (d) => (d.online ? "online" : d.state && STATE_LABELS[d.state] ? d.state : "offline");
+const statePill = (d) => { const [label, cls] = STATE_LABELS[stateOf(d)]; return `<span class="pill ${cls}">${label}</span>`; };
+
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 function bytes(n, digits = 1) {
@@ -267,8 +272,10 @@ function renderDashboard(full) {
 
   $("#d-name").textContent = d.name;
   const st = $("#d-status");
-  st.textContent = d.online ? "Online" : "Offline";
-  st.className = `pill ${d.online ? "on" : "off"}`;
+  const [stLabel, stCls] = STATE_LABELS[stateOf(d)];
+  st.textContent = stLabel;
+  st.className = `pill ${stCls}`;
+  $("#d-agent").textContent = d.agent_version ? `v${d.agent_version}` : "—";
   $("#d-os").textContent = info.os || d.os || "—";
   $("#d-host").textContent = info.hostname || d.hostname || "—";
   $("#d-cpu-model").textContent = info.cpu_model ? `${info.cpu_model} (${info.cpu_cores}C/${info.cpu_threads}T)` : "—";
@@ -289,7 +296,8 @@ function renderDashboard(full) {
     renderDisks(m.disks);
     renderCores(m.cpu);
   } else {
-    for (const id of ["#g-cpu", "#g-ram", "#g-gpu", "#g-temp"]) setGauge(id, null, "Computador offline");
+    const why = { paused: "Pausado no próprio PC", stopped: "Agente encerrado no PC" }[stateOf(d)] || "Computador offline";
+    for (const id of ["#g-cpu", "#g-ram", "#g-gpu", "#g-temp"]) setGauge(id, null, why);
     $("#net-down").textContent = $("#net-up").textContent = "—";
     $("#disks").innerHTML = `<p class="muted small">Dados disponíveis quando o computador estiver online.</p>`;
     $("#cores").innerHTML = "";
@@ -388,8 +396,8 @@ function renderHero(d) {
   const m = d.online ? d.metrics : null;
   mon.classList.toggle("off", !d.online);
   $("#hv-name").textContent = d.name;
-  $("#hv-status").textContent = d.online ? "online" : "offline";
-  status.innerHTML = `<span class="pill ${d.online ? "on" : "off"}">${d.online ? "Online" : "Offline"}</span>`
+  $("#hv-status").textContent = STATE_LABELS[stateOf(d)][0].toLowerCase();
+  status.innerHTML = statePill(d)
     + `<span>${esc(d.name)}${m ? ` · ligado há ${esc(duration(m.uptime))}` : d.last_seen ? ` · visto em ${esc(dateTime(d.last_seen))}` : ""}</span>`
     + `<span class="muted">· ${online} de ${state.devices.size} computador(es) online</span>`;
   if (m) {
@@ -443,7 +451,7 @@ function renderDeviceList() {
   box.innerHTML = list.map((d) => `
     <div class="list-item" data-id="${esc(d.id)}">
       <div class="meta">
-        <b>${esc(d.name)} <span class="pill ${d.online ? "on" : "off"}">${d.online ? "Online" : "Offline"}</span></b>
+        <b>${esc(d.name)} ${statePill(d)}</b>
         <small>${esc(d.hostname || "—")} · ${esc(d.os || "—")}</small>
         <small>Vinculado em ${dateTime(d.created_at)} · visto ${d.online ? "agora" : dateTime(d.last_seen)}</small>
       </div>

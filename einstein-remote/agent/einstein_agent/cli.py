@@ -1,8 +1,9 @@
 """Interface de linha de comando do agente.
 
-    einstein-agent pair --server https://host:8443 --code ABCD-EFGH
-    einstein-agent run
-    einstein-agent status | pause | resume
+    einstein-agent tray                       ícone na bandeja (modo recomendado)
+    einstein-agent pair --server URL --code ABCD-EFGH
+    einstein-agent run                        modo console (servidor/diagnóstico)
+    einstein-agent status | pause | resume | logs
     einstein-agent autostart enable|disable
     einstein-agent uninstall
 """
@@ -10,19 +11,15 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
-import logging
-import shutil
 import signal
-import ssl
 import sys
-import urllib.error
-import urllib.request
 
 from . import __version__, autostart
-from .client import Agent, AuthRejected, check_transport, ssl_context
-from .config import AgentConfig, config_dir, config_path, protect_secret
-from .metrics import system_info
+from .client import Agent, AuthRejected
+from .config import AgentConfig, config_path
+from .logs import log_file, setup_logging, tail
+from .pairing import PairingError, pair, unpair
+from .singleton import SingleInstance
 
 BANNER = r"""
   ███████╗██╗███╗   ██╗███████╗████████╗███████╗██╗███╗   ██╗
@@ -35,34 +32,13 @@ BANNER = r"""
 
 
 def cmd_pair(args) -> int:
-    cfg = AgentConfig.load()
-    cfg.server_url = args.server.rstrip("/")
-    cfg.ca_file = args.ca_file or cfg.ca_file
-    cfg.allow_insecure = args.allow_insecure or cfg.allow_insecure
-    check_transport(cfg)
-    info = system_info()
-    body = json.dumps({"code": args.code, "hostname": info["hostname"], "os": info["os"]}).encode()
-    req = urllib.request.Request(
-        cfg.server_url + "/api/agent/pair", data=body, headers={"Content-Type": "application/json"}, method="POST"
-    )
-    ctx = ssl_context(cfg) if cfg.server_url.startswith("https://") else None
     try:
-        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
-            data = json.loads(resp.read())
-    except urllib.error.HTTPError as e:
-        detail = json.loads(e.read() or b"{}").get("detail", e.reason)
-        print(f"Falha no pareamento: {detail}")
+        cfg = pair(args.server, args.code, args.ca_file or "", args.allow_insecure)
+    except PairingError as e:
+        print(f"Falha no pareamento: {e}")
         return 1
-    except (urllib.error.URLError, ssl.SSLError) as e:
-        print(f"Não foi possível contatar o servidor: {e}")
-        return 1
-    cfg.device_id = data["device_id"]
-    cfg.device_secret = protect_secret(data["device_secret"])
-    cfg.device_name = data["name"]
-    cfg.paused = False
-    cfg.save()
-    print(f"✔ Dispositivo vinculado como '{data['name']}'. Configuração salva em {config_path()}")
-    print("  Inicie com: einstein-agent run")
+    print(f"✔ Dispositivo vinculado como '{cfg.device_name}'. Configuração salva em {config_path()}")
+    print("  Inicie com: einstein-agent tray   (ou 'einstein-agent run' no console)")
     return 0
 
 
@@ -72,8 +48,12 @@ def cmd_run(args) -> int:
     if not cfg.paired:
         print("Este computador ainda não foi vinculado. Execute 'einstein-agent pair' primeiro.")
         return 1
+    lock = SingleInstance("agent")
+    if not lock.acquire():
+        print("O agente já está em execução neste computador (bandeja ou outro terminal).")
+        return 3
     print("O EINSTEIN REMOTE AGENT está ATIVO e visível. O proprietário pode pausá-lo a qualquer momento")
-    print("com 'einstein-agent pause' ou encerrá-lo com Ctrl+C.\n")
+    print(f"com 'einstein-agent pause' ou encerrá-lo com Ctrl+C. Registro: {log_file()}\n")
     agent = Agent(cfg)
 
     async def main():
@@ -94,18 +74,35 @@ def cmd_run(args) -> int:
     except ValueError as e:
         print(e)
         return 1
+    finally:
+        lock.release()
     print("Agente encerrado.")
     return 0
 
 
+def cmd_tray(args) -> int:
+    try:
+        from .tray import main as tray_main
+    except ImportError as e:
+        print(f"Interface da bandeja indisponível ({e}). Instale: pip install pystray pillow")
+        return 1
+    return tray_main()
+
+
 def cmd_status(args) -> int:
     cfg = AgentConfig.load()
+    probe = SingleInstance("agent")
+    running = not probe.acquire()
+    probe.release()
+    print(f"Versão:        {__version__}")
     print(f"Configuração:  {config_path()}")
+    print(f"Registro:      {log_file()}")
     print(f"Vinculado:     {'sim' if cfg.paired else 'não'}")
     if cfg.paired:
         print(f"Servidor:      {cfg.server_url}")
         print(f"Nome:          {cfg.device_name}")
         print(f"ID:            {cfg.device_id}")
+    print(f"Em execução:   {'sim' if running else 'não'}")
     print(f"Pausado:       {'sim' if cfg.paused else 'não'}")
     print(f"Auto-início:   {'ativado' if autostart.is_enabled() else 'desativado'}")
     return 0
@@ -113,9 +110,18 @@ def cmd_status(args) -> int:
 
 def _set_paused(value: bool) -> int:
     cfg = AgentConfig.load()
+    if not cfg.paired:
+        print("Este computador não está vinculado.")
+        return 1
     cfg.paused = value
     cfg.save()
     print("Agente pausado: nenhuma métrica ou comando será processado." if value else "Agente retomado.")
+    return 0
+
+
+def cmd_logs(args) -> int:
+    text = tail(args.lines)
+    print(text if text else f"(sem registros em {log_file()})")
     return 0
 
 
@@ -137,15 +143,25 @@ def cmd_uninstall(args) -> int:
         if answer.strip().lower() not in ("s", "sim", "y", "yes"):
             print("Cancelado.")
             return 1
-    autostart.disable()
-    shutil.rmtree(config_dir(), ignore_errors=True)
+    unpair()
     print("Configuração removida. Revogue também o dispositivo no dashboard (Dispositivos > Revogar).")
-    print("Para remover o programa: 'pip uninstall einstein-remote-agent' ou pelo desinstalador do Windows.")
+    print("Para remover o programa: Configurações do Windows > Aplicativos > EINSTEIN REMOTE AGENT,")
+    print("ou 'pip uninstall einstein-remote-agent' se instalou pelo Python.")
     return 0
 
 
+def _safe_console() -> None:
+    """Saída redirecionada no Windows usa cp1252: troca caracteres sem representação em vez de falhar."""
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(message)s", datefmt="%H:%M:%S")
+    _safe_console()
     p = argparse.ArgumentParser(prog="einstein-agent", description="EINSTEIN REMOTE AGENT")
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -157,10 +173,14 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--allow-insecure", action="store_true", help="permite http:// fora de localhost (somente testes)")
     sp.set_defaults(fn=cmd_pair)
 
-    sub.add_parser("run", help="executa o agente").set_defaults(fn=cmd_run)
+    sub.add_parser("tray", help="executa com ícone na bandeja (recomendado)").set_defaults(fn=cmd_tray)
+    sub.add_parser("run", help="executa no console").set_defaults(fn=cmd_run)
     sub.add_parser("status", help="mostra o estado do agente").set_defaults(fn=cmd_status)
     sub.add_parser("pause", help="pausa o agente").set_defaults(fn=lambda a: _set_paused(True))
     sub.add_parser("resume", help="retoma o agente").set_defaults(fn=lambda a: _set_paused(False))
+    sl = sub.add_parser("logs", help="mostra as últimas linhas do registro")
+    sl.add_argument("-n", "--lines", type=int, default=40)
+    sl.set_defaults(fn=cmd_logs)
 
     sa = sub.add_parser("autostart", help="ativa/desativa início automático com o Windows")
     sa.add_argument("mode", choices=["enable", "disable"])
@@ -171,6 +191,8 @@ def main(argv: list[str] | None = None) -> int:
     su.set_defaults(fn=cmd_uninstall)
 
     args = p.parse_args(argv)
+    if args.cmd not in ("tray",):
+        setup_logging(console=args.cmd == "run")
     return args.fn(args)
 
 

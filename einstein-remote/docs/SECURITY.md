@@ -41,6 +41,14 @@ Quando o proprietário altera papel, acesso ou senha de alguém, as conexões em
 e reabertas com as novas permissões; redefinição de senha e remoção encerram **todas** as sessões do usuário.
 Trocar a própria senha exige a senha atual e encerra as demais sessões.
 
+## Transparência do agente (Fase 3)
+- O agente roda com **ícone visível na bandeja**; a cor mostra o estado (verde online, amarelo pausado/conectando, vermelho sem conexão/recusado).
+- Avisos do Windows informam quando o agente inicia e quando conecta ("este computador está visível no seu painel").
+- Pausar, encerrar e desvincular estão a um clique no próprio PC, sem senha do painel — o dono do computador sempre tem a palavra final.
+- Quando pausado ou encerrado no PC, o painel mostra **"Pausado no PC" / "Agente encerrado"** (e não apenas offline), e a ação é auditada.
+- O início automático só é ligado por escolha explícita e usa a entrada padrão visível em *Gerenciador de Tarefas › Inicializar*.
+- Uma única instância por usuário; o log local nunca contém o segredo do dispositivo (verificado em teste).
+
 ## Produção — checklist
 - Rodar com HTTPS (`scripts/run-server.sh --tls`) e `EINSTEIN_COOKIE_SECURE=1`.
 - Atrás de proxy reverso (Caddy/Nginx), encaminhar WebSocket e restringir o acesso ao diretório `data/`.

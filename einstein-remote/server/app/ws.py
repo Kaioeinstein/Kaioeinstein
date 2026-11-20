@@ -62,6 +62,8 @@ async def agent_socket(ws: WebSocket):
                 await st.hub.agent_metrics(conn, data["data"])
             elif kind == "result":
                 await st.hub.command_result(conn, data)
+            elif kind == "status" and isinstance(data.get("state"), str):
+                st.hub.agent_status(conn, data["state"])
             elif kind == "info" and isinstance(data.get("data"), dict):
                 conn.info = data["data"]
     except (WebSocketDisconnect, RuntimeError):

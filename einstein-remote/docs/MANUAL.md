@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.2, Fase 2)
+# EINSTEIN REMOTE — Manual de utilização (v0.3, Fase 3)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -22,22 +22,47 @@ Abra `http://127.0.0.1:8000` e crie a **conta do proprietário** (só é possív
 ```
 Instale `certs/ca.crt` como confiável no celular, ou use um domínio com certificado válido.
 
-## 3. Vincular o computador Windows
-1. Dashboard → **Dispositivos** → digite um nome → **Gerar código** (vale 10 min, uso único).
-2. No PC Windows (PowerShell, na pasta do projeto):
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File installer\install-agent.ps1
-   einstein-agent pair --server https://SEU-SERVIDOR:8443 --code ABCD-EFGH --ca-file certs\ca.crt
-   einstein-agent run
-   ```
-   Teste local sem TLS: `einstein-agent pair --server http://127.0.0.1:8000 --code ABCD-EFGH`.
-3. O painel mostra o PC **Online** com métricas em tempo real.
+## 3. Instalar o agente no Windows e vincular
+
+### Opção A — executável (sem Python)
+1. Baixe `EinsteinRemoteAgent-<versão>-win64.zip` (artefato do GitHub Actions › workflow **EINSTEIN REMOTE**, ou gere com `installer\build-agent.ps1`).
+2. Extraia numa pasta (ex.: `C:\Program Files\EinsteinRemote` ou `%LOCALAPPDATA%\EinsteinRemote\app`).
+3. Execute **`EinsteinRemoteAgent.exe`**. Na primeira vez abre a janela **Vincular computador**.
+
+> O executável ainda não tem assinatura digital: o Windows SmartScreen pode avisar "Editor desconhecido" → *Mais informações › Executar assim mesmo*. A assinatura e o instalador `.exe` com desinstalação pelo Windows chegam na Fase 10.
+
+### Opção B — a partir do código-fonte (com Python 3.10+)
+```powershell
+powershell -ExecutionPolicy Bypass -File installer\install-agent.ps1
+```
+Cria o atalho **Menu Iniciar › EINSTEIN REMOTE AGENT** e abre o agente na bandeja.
+
+### Vincular
+1. No painel: **Dispositivos** → nome do computador → **Gerar código** (vale 10 min, uso único).
+2. Na janela do agente: endereço do servidor (ex.: `https://meu-servidor:8443`), o código e, se usar certificado próprio, o arquivo `ca.crt` → **Vincular**.
+3. O ícone fica verde e o painel mostra o PC **Online**.
+
+Pela linha de comando: `einstein-agent pair --server https://SEU-SERVIDOR:8443 --code ABCD-EFGH [--ca-file ca.crt]`.
+Teste local sem TLS: `--server http://127.0.0.1:8000`.
+
+### Ícone na bandeja
+| Cor | Significado |
+|---|---|
+| 🟢 verde | Online, enviando dados ao painel |
+| 🟡 amarelo | Conectando ou **pausado por você** |
+| 🔴 vermelho | Sem conexão (tenta de novo sozinho) ou vínculo revogado |
+| ⚪ cinza | Não vinculado |
+
+Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Iniciar com o Windows** · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
+Se o vínculo for revogado no painel, aparece **Vincular este computador…** para refazer.
 
 ## 4. Comandos do agente
 | Comando | Efeito |
 |---|---|
-| `einstein-agent run` | Executa o agente (visível no terminal) |
-| `einstein-agent status` | Mostra vínculo, servidor, pausa e auto‑início |
+| `einstein-agent tray` | Executa com ícone na bandeja (modo recomendado) |
+| `einstein-agent run` | Executa no terminal (diagnóstico) |
+| `einstein-agent logs [-n 40]` | Mostra as últimas linhas do registro |
+| `einstein-agent status` | Mostra versão, vínculo, servidor, se está em execução, pausa e auto‑início |
 | `einstein-agent pause` / `resume` | Pausa/retoma (o agente em execução obedece em até 2 s) |
 | `einstein-agent autostart enable` / `disable` | Liga/desliga o início com o Windows (visível em Gerenciador de Tarefas › Inicializar) |
 | `einstein-agent uninstall` | Remove vínculo, configuração e auto‑início |
@@ -60,6 +85,8 @@ Abra o endereço do servidor no navegador e use **Adicionar à tela inicial** �
 - **Temperatura no Windows:** o Windows não expõe sensores de CPU via psutil; o painel mostra a temperatura da GPU NVIDIA quando houver. Integração com LibreHardwareMonitor está prevista na Fase 4.
 - **GPU:** uso medido via `nvidia-smi` (NVIDIA). AMD/Intel serão tratadas na Fase 4 (contadores de desempenho do Windows).
 - Tela remota, mouse/teclado, energia, processos e arquivos chegam nas Fases 4–7 e **ainda não aparecem** no painel.
+- Só um agente roda por usuário do Windows; abrir de novo avisa que já está em execução.
+- Registro local: `%LOCALAPPDATA%\EinsteinRemote\logs\agent.log` (rotativo, até ~6 MB).
 - As notificações aparecem no painel e como alerta nativo do navegador (com a página aberta em segundo plano). Push com o app fechado chega na Fase 8.
 
 ## 7. Variáveis de ambiente do servidor

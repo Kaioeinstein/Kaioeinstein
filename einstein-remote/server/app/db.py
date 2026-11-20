@@ -60,7 +60,9 @@ CREATE TABLE IF NOT EXISTS devices (
     os TEXT,
     created_at REAL NOT NULL,
     last_seen REAL,
-    revoked INTEGER NOT NULL DEFAULT 0
+    revoked INTEGER NOT NULL DEFAULT 0,
+    last_state TEXT,
+    agent_version TEXT
 );
 
 CREATE TABLE IF NOT EXISTS pairing_codes (
@@ -123,11 +125,14 @@ class Database:
         "last_login": "REAL",
     }
 
+    _DEVICE_COLUMNS = {"last_state": "TEXT", "agent_version": "TEXT"}
+
     def _migrate(self) -> None:
-        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(users)").fetchall()}
-        for name, ddl in self._USER_COLUMNS.items():
-            if name not in cols:
-                self._conn.execute(f"ALTER TABLE users ADD COLUMN {name} {ddl}")
+        for table, columns in (("users", self._USER_COLUMNS), ("devices", self._DEVICE_COLUMNS)):
+            cols = {r["name"] for r in self._conn.execute(f"PRAGMA table_info({table})").fetchall()}
+            for name, ddl in columns.items():
+                if name not in cols:
+                    self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
 
     def close(self) -> None:
         with self._lock:
@@ -289,18 +294,26 @@ class Database:
 
     def get_device_public(self, device_id: str) -> dict | None:
         return self.one(
-            "SELECT id, name, hostname, os, created_at, last_seen, revoked FROM devices WHERE id = ?", (device_id,)
+            "SELECT id, name, hostname, os, created_at, last_seen, revoked, last_state, agent_version FROM devices WHERE id = ?",
+            (device_id,),
         )
 
     def list_devices(self) -> list[dict]:
         return self.all(
-            "SELECT id, name, hostname, os, created_at, last_seen, revoked FROM devices WHERE revoked = 0 ORDER BY created_at"
+            "SELECT id, name, hostname, os, created_at, last_seen, revoked, last_state, agent_version FROM devices"
+            " WHERE revoked = 0 ORDER BY created_at"
         )
 
     def update_device_seen(self, device_id: str, hostname: str | None = None, os_name: str | None = None) -> None:
         self.execute(
             "UPDATE devices SET last_seen = ?, hostname = COALESCE(?, hostname), os = COALESCE(?, os) WHERE id = ?",
             (time.time(), hostname, os_name, device_id),
+        )
+
+    def set_device_state(self, device_id: str, state: str, agent_version: str | None = None) -> None:
+        self.execute(
+            "UPDATE devices SET last_state = ?, agent_version = COALESCE(?, agent_version) WHERE id = ?",
+            (state, agent_version, device_id),
         )
 
     def rename_device(self, device_id: str, name: str) -> None:

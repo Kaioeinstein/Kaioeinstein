@@ -3,21 +3,29 @@
 Usa a chave padrão ``HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run``
 com o nome "Einstein Remote Agent" — aparece no Gerenciador de Tarefas >
 Inicializar e pode ser desativada pelo próprio Windows. Só é criada quando o
-proprietário executa ``einstein-agent autostart enable``.
+proprietário pede (``einstein-agent autostart enable`` ou menu da bandeja).
+O programa iniciado é sempre o da bandeja, com ícone visível.
 """
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 VALUE_NAME = "Einstein Remote Agent"
+TRAY_EXE = "EinsteinRemoteAgent.exe"
 
 
-def _command() -> str:
+def startup_command(tray: bool = True) -> str:
     if getattr(sys, "frozen", False):  # executável empacotado (PyInstaller)
-        return f'"{sys.executable}" run'
-    pythonw = sys.executable.replace("python.exe", "pythonw.exe")
-    return f'"{pythonw}" -m einstein_agent run'
+        exe = Path(sys.executable)
+        sibling = exe.with_name(TRAY_EXE)
+        if sibling.exists():
+            return f'"{sibling}"'
+        return f'"{exe}" tray'
+    pythonw = Path(sys.executable).with_name("pythonw.exe")
+    interpreter = pythonw if pythonw.exists() else Path(sys.executable)
+    return f'"{interpreter}" -m einstein_agent tray'
 
 
 def _require_windows() -> None:
@@ -25,11 +33,11 @@ def _require_windows() -> None:
         raise RuntimeError("Inicialização automática disponível apenas no Windows.")
 
 
-def enable() -> str:
+def enable(tray: bool = True) -> str:
     _require_windows()
     import winreg
 
-    cmd = _command()
+    cmd = startup_command(tray)
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
         winreg.SetValueEx(k, VALUE_NAME, 0, winreg.REG_SZ, cmd)
     return cmd

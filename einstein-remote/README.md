@@ -14,7 +14,7 @@ einstein-remote/
 │   ├── einstein_agent/
 │   └── pyproject.toml
 ├── web/               # EINSTEIN REMOTE DASHBOARD + MOBILE (PWA, HTML/CSS/JS)
-├── installer/         # Instalador do agente (PowerShell; .exe na Fase 10)
+├── installer/         # Instalador PowerShell, build .exe (PyInstaller), smoke test
 ├── scripts/           # Iniciar servidor, gerar certificados TLS
 ├── tests/             # Testes unitários, de API e ponta a ponta
 └── docs/              # Arquitetura, segurança, manual
@@ -31,4 +31,4 @@ cd agent && pip install . && einstein-agent pair --server http://127.0.0.1:8000 
 - [Modelo de segurança](docs/SECURITY.md)
 - [Manual de utilização](docs/MANUAL.md)
 
-**Status:** Fase 2 concluída — tela inicial com atalhos, usuários e permissões por dispositivo, limites de alerta configuráveis, troca de senha. 34 testes automatizados.
+**Status:** Fase 3 concluída — agente com ícone na bandeja, janela de vinculação, log local, executável Windows gerado e testado no CI (Linux + Windows). 46 testes automatizados.

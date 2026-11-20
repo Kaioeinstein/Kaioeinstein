@@ -70,6 +70,11 @@ class AgentConn:
     last_persist: float = 0.0
     high_since: dict[str, float] = field(default_factory=dict)
     last_alert: dict[str, float] = field(default_factory=dict)
+    exit_state: str | None = None  # 'paused' | 'stopping' quando o dono encerra no próprio PC
+
+
+# Motivos de desconexão informados pelo agente antes de fechar
+EXIT_STATES = {"paused": "paused", "stopping": "stopped"}
 
 
 @dataclass(eq=False)  # identidade por objeto (usado em set)
@@ -147,6 +152,7 @@ class Hub:
         conn = self.agents.get(row["id"])
         return {
             **row,
+            "state": "online" if conn else (row.get("last_state") or "offline"),
             "online": conn is not None,
             "info": conn.info if conn else None,
             "connected_at": conn.connected_at if conn else None,
@@ -169,7 +175,11 @@ class Hub:
             except Exception:
                 pass
         self.db.update_device_seen(device["id"], info.get("hostname"), info.get("os"))
-        self.db.audit("agent.connected", device_id=device["id"], detail={"hostname": info.get("hostname")})
+        self.db.set_device_state(device["id"], "online", str(info.get("agent_version") or "")[:32] or None)
+        self.db.audit(
+            "agent.connected", device_id=device["id"],
+            detail={"hostname": info.get("hostname"), "agent_version": info.get("agent_version")},
+        )
         await self.broadcast(
             {"type": "device", "data": self.device_view(self.db.get_device_public(device["id"]))}, device["id"]
         )
@@ -182,9 +192,11 @@ class Hub:
             if self.agents.get(conn.device_id) is not conn:
                 return  # já foi substituída por uma conexão mais nova
             del self.agents[conn.device_id]
-        device = self.db.get_device_public(conn.device_id)
+        state = EXIT_STATES.get(conn.exit_state or "", "offline")
         self.db.update_device_seen(conn.device_id)
-        self.db.audit("agent.disconnected", device_id=conn.device_id)
+        self.db.set_device_state(conn.device_id, state)
+        device = self.db.get_device_public(conn.device_id)
+        self.db.audit("agent.disconnected", device_id=conn.device_id, detail={"reason": state})
         # falha todos os comandos pendentes deste agente
         for cid, p in list(self.pending.items()):
             if p.device_id == conn.device_id:
@@ -195,7 +207,17 @@ class Hub:
         elif device:
             await self.broadcast({"type": "device", "data": self.device_view(device)}, conn.device_id)
             if self.prefs["notify_device_offline"]:
-                await self.notify("warning", "device_offline", f"{device['name']} desconectado", conn.device_id)
+                if state == "paused":
+                    await self.notify("info", "device_paused", f"{device['name']}: monitoramento pausado no próprio computador", conn.device_id)
+                elif state == "stopped":
+                    await self.notify("info", "device_stopped", f"{device['name']}: agente encerrado no próprio computador", conn.device_id)
+                else:
+                    await self.notify("warning", "device_offline", f"{device['name']} desconectado", conn.device_id)
+
+    def agent_status(self, conn: AgentConn, state: str) -> None:
+        """O agente avisa que vai fechar por decisão do proprietário (pausa ou encerramento)."""
+        if state in EXIT_STATES:
+            conn.exit_state = state
 
     async def agent_metrics(self, conn: AgentConn, metrics: dict) -> None:
         summary = summarize(metrics)
