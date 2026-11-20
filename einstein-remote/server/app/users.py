@@ -107,6 +107,23 @@ async def update_user(user_id: int, body: UserUpdate, request: Request, user: di
     return _user_view(st.db, user_id)
 
 
+@router.post("/users/{user_id}/reset-2fa")
+async def reset_2fa(user_id: int, request: Request, user: dict = Depends(require_role("owner"))):
+    """Para quem perdeu o celular e os códigos de recuperação: desativa o 2FA e encerra as sessões."""
+    st = request.app.state
+    target = st.db.get_user(user_id)
+    if not target:
+        raise HTTPException(404, "Usuário não encontrado")
+    if target["id"] == user["id"]:
+        raise HTTPException(403, "Para o próprio usuário, use Desativar em Minha conta (ou o comando de recuperação no servidor).")
+    st.db.update_user(user_id, totp_enabled=0, totp_secret=None, totp_last_step=0, recovery_hashes=None)
+    for sid in st.db.revoke_user_sessions(user_id):
+        await st.hub.close_session(sid)
+    st.db.audit("user.2fa_reset", user=user, ip=client_ip(request), detail={"username": target["username"]})
+    await st.hub.notify("warning", "security", f"Verificação em duas etapas de {target['username']} redefinida por {user['username']}")
+    return {"ok": True}
+
+
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: int, request: Request, user: dict = Depends(require_role("owner"))):
     st = request.app.state
@@ -132,6 +149,8 @@ def get_settings(request: Request, user: dict = Depends(current_user)):
 @router.put("/settings")
 def update_settings(body: SettingsUpdate, request: Request, user: dict = Depends(require_role("admin"))):
     st = request.app.state
+    if body.require_2fa is not None and body.require_2fa != st.prefs["require_2fa"] and user["role"] != "owner":
+        raise HTTPException(403, "Somente o proprietário altera a exigência de verificação em duas etapas.")
     changes = st.prefs.update(body)
     if changes:
         st.db.audit("settings.updated", user=user, ip=client_ip(request), detail=changes)

@@ -40,6 +40,9 @@ inferior, gauges 2×2), instalável pela opção "Adicionar à tela inicial" —
 | `users.py` | Usuários, papéis, acesso por dispositivo, configurações de alertas |
 | `preferences.py` | Limites e tipos de notificação persistidos no banco |
 | `transfers.py` / `files_api.py` | Download por link de uso único com streaming e verificação SHA-256; upload em streaming; cópia direta entre dois computadores |
+| `totp.py` | Verificação em duas etapas (RFC 6238), códigos de recuperação, QR code |
+| `webpush.py` / `push_api.py` | Web Push implementado pelas RFCs 8291 (criptografia aes128gcm) e 8292 (VAPID/ES256); inscrições por aparelho, filtro por permissão e nível |
+| `admin.py` | Recuperação no console do servidor: `reset-2fa`, `reset-password`, `users` |
 | `wol.py` | Wake-on-LAN: pacote mágico por broadcast (geral e da sub-rede privada do PC) |
 | `screens.py` | Sessões de tela: quadros só para quem abriu a sessão, entrada só de quem tem controle (com limite de taxa), auditoria de início/fim |
 | `hub.py` | Conexões em tempo real filtradas por permissão, allowlist de ações, alertas configuráveis, comandos pendentes |
@@ -137,6 +140,6 @@ agente ◀──{"type":"input","events":[...]}───────── servi
 | 5 | Tela em tempo real, mouse e teclado (desktop e toque), tela cheia, qualidade/resolução, multi-monitor, faixa de aviso e consentimento no PC | ✅ concluída |
 | 6 | Energia: desligar, reiniciar, suspender, hibernar, bloquear, cancelar e ligar (Wake-on-LAN), com prazos e confirmação | ✅ concluída |
 | 7 | Arquivos: pastas liberadas pelo dono, navegação, download, upload, nova pasta e cópia entre computadores com SHA‑256 | ✅ concluída |
-| 8 | Segurança avançada: 2FA TOTP, gestão de usuários, políticas por dispositivo, alertas por e‑mail/push | próxima |
-| 9 | Testes de carga, testes no Windows real, correções | |
+| 8 | 2FA (TOTP) com códigos de recuperação e política obrigatória, alerta de novo acesso, notificações push com o app fechado, encerrar outras sessões | ✅ concluída |
+| 9 | Testes de carga, testes no Windows real, correções | próxima |
 | 10 | Instalador (.exe com Inno Setup + PyInstaller), servidor como serviço, versão 1.0 | |

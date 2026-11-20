@@ -28,6 +28,9 @@ from .hub import Hub
 from .preferences import Preferences
 from .users import router as users_router
 from .files_api import router as files_router
+from .push_api import PushDispatcher
+from .push_api import router as push_router
+from .webpush import Vapid
 from .security import RateLimiter
 from .ws import router as ws_router
 
@@ -63,6 +66,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.db = db
     app.state.prefs = Preferences(db)
     app.state.hub = Hub(db, settings, app.state.prefs)
+    app.state.push = PushDispatcher(db, Vapid(settings.data_dir))
+    app.state.hub.push = app.state.push
     app.state.limiter = RateLimiter(settings.max_login_failures, settings.lockout_seconds)
 
     @app.middleware("http")
@@ -88,6 +93,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(devices_router)
     app.include_router(users_router)
     app.include_router(files_router)
+    app.include_router(push_router)
     app.include_router(ws_router)
 
     @app.exception_handler(404)

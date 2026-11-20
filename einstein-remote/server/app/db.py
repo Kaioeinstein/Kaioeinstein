@@ -33,6 +33,28 @@ CREATE TABLE IF NOT EXISTS user_devices (
     PRIMARY KEY (user_id, device_id)
 );
 
+CREATE TABLE IF NOT EXISTS known_logins (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    fingerprint TEXT NOT NULL,
+    label TEXT,
+    first_seen REAL NOT NULL,
+    last_seen REAL NOT NULL,
+    PRIMARY KEY (user_id, fingerprint)
+);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    min_level TEXT NOT NULL DEFAULT 'warning',
+    user_agent TEXT,
+    created_at REAL NOT NULL,
+    last_ok REAL,
+    failures INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -125,6 +147,10 @@ class Database:
         "all_devices": "INTEGER NOT NULL DEFAULT 1",
         "notif_read_upto": "INTEGER NOT NULL DEFAULT 0",
         "last_login": "REAL",
+        "totp_secret": "TEXT",
+        "totp_enabled": "INTEGER NOT NULL DEFAULT 0",
+        "totp_last_step": "INTEGER NOT NULL DEFAULT 0",
+        "recovery_hashes": "TEXT",
     }
 
     _DEVICE_COLUMNS = {"last_state": "TEXT", "agent_version": "TEXT", "mac": "TEXT", "last_ip": "TEXT"}
@@ -175,13 +201,14 @@ class Database:
         return self.one("SELECT * FROM users WHERE role = 'owner' ORDER BY id LIMIT 1")
 
     def list_users(self) -> list[dict]:
-        users = self.all("SELECT id, username, role, created_at, all_devices, last_login FROM users ORDER BY id")
+        users = self.all("SELECT id, username, role, created_at, all_devices, last_login, totp_enabled FROM users ORDER BY id")
         for u in users:
             u["device_ids"] = self.user_device_ids(u["id"])
         return users
 
     def update_user(self, user_id: int, **fields) -> None:
-        allowed = {"role", "all_devices", "password_hash", "notif_read_upto", "last_login"}
+        allowed = {"role", "all_devices", "password_hash", "notif_read_upto", "last_login", "totp_secret",
+                   "totp_enabled", "totp_last_step", "recovery_hashes"}
         fields = {k: v for k, v in fields.items() if k in allowed}
         if not fields:
             return
@@ -213,6 +240,45 @@ class Database:
         if user["role"] == "owner" or user.get("all_devices"):
             return None
         return set(self.user_device_ids(user["id"]))
+
+    # -- acessos conhecidos (alerta de novo acesso) ---------------------------
+    def seen_login(self, user_id: int, fingerprint: str, label: str) -> tuple[bool, int]:
+        """Registra o acesso. Retorna (é_novo, quantos_acessos_conhecidos_antes)."""
+        with self._lock:
+            known = self.one("SELECT COUNT(*) AS n FROM known_logins WHERE user_id = ?", (user_id,))["n"]
+            row = self.one("SELECT 1 FROM known_logins WHERE user_id = ? AND fingerprint = ?", (user_id, fingerprint))
+            now = time.time()
+            if row:
+                self.execute("UPDATE known_logins SET last_seen = ? WHERE user_id = ? AND fingerprint = ?", (now, user_id, fingerprint))
+                return False, known
+            self.execute("INSERT INTO known_logins (user_id, fingerprint, label, first_seen, last_seen) VALUES (?,?,?,?,?)",
+                         (user_id, fingerprint, label, now, now))
+            return True, known
+
+    # -- inscrições de push ---------------------------------------------------
+    def save_push(self, user_id: int, endpoint: str, p256dh: str, auth: str, min_level: str, ua: str | None) -> None:
+        self.execute(
+            "INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, min_level, user_agent, created_at) VALUES (?,?,?,?,?,?,?)"
+            " ON CONFLICT(endpoint) DO UPDATE SET user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth,"
+            " min_level = excluded.min_level, user_agent = excluded.user_agent, failures = 0",
+            (user_id, endpoint, p256dh, auth, min_level, (ua or "")[:300], time.time()),
+        )
+
+    def push_subscriptions(self, user_id: int | None = None) -> list[dict]:
+        if user_id is None:
+            return self.all("SELECT * FROM push_subscriptions")
+        return self.all("SELECT id, endpoint, min_level, user_agent, created_at, last_ok, failures FROM push_subscriptions WHERE user_id = ?", (user_id,))
+
+    def delete_push(self, endpoint: str, user_id: int | None = None) -> bool:
+        if user_id is None:
+            return self.execute("DELETE FROM push_subscriptions WHERE endpoint = ?", (endpoint,)).rowcount > 0
+        return self.execute("DELETE FROM push_subscriptions WHERE endpoint = ? AND user_id = ?", (endpoint, user_id)).rowcount > 0
+
+    def push_result(self, endpoint: str, ok: bool) -> None:
+        if ok:
+            self.execute("UPDATE push_subscriptions SET last_ok = ?, failures = 0 WHERE endpoint = ?", (time.time(), endpoint))
+        else:
+            self.execute("UPDATE push_subscriptions SET failures = failures + 1 WHERE endpoint = ?", (endpoint,))
 
     # -- configurações --------------------------------------------------------
     def get_settings(self) -> dict:

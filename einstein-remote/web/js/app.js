@@ -6,6 +6,7 @@ import { Monitor } from "./monitor.js";
 import { RemoteViewer } from "./remote.js";
 import { PowerCenter } from "./power.js";
 import { FileBrowser } from "./files.js";
+import { PushCard, TwoFactorCard } from "./security.js";
 
 // ----------------------------------------------------------------- utilidades
 // Estado do computador: online, offline (queda), pausado ou encerrado pelo dono no próprio PC
@@ -46,18 +47,51 @@ async function showAuth() {
   $("#auth-pass").autocomplete = setupMode ? "new-password" : "current-password";
 }
 
+let pendingChallenge = null;
+function showCodeStep(on) {
+  if (!on) pendingChallenge = null;
+  $("#auth-2fa").classList.toggle("hidden", !on);
+  $("#auth-user").closest("label").classList.toggle("hidden", on);
+  $("#auth-pass").closest("label").classList.toggle("hidden", on);
+  $("#auth-pass").required = !on;
+  $("#auth-title").textContent = on ? "Verificação em duas etapas" : "Entrar";
+  $("#auth-sub").textContent = on ? "Digite o código do seu aplicativo autenticador." : "Acesse o painel do seu computador.";
+  $("#auth-submit").textContent = on ? "Verificar" : "Entrar";
+  if (on) $("#auth-code").focus();
+}
+
 $("#auth-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const user = $("#auth-user").value.trim();
   const pass = $("#auth-pass").value;
   $("#auth-error").textContent = "";
+  if (pendingChallenge) {
+    $("#auth-submit").disabled = true;
+    try {
+      await API.verify2fa(pendingChallenge, $("#auth-code").value.trim());
+      $("#auth-code").value = "";
+      $("#auth-pass").value = "";
+      showCodeStep(false);
+      startApp();
+    } catch (err) {
+      $("#auth-error").textContent = err.message;
+      if (/expirou/.test(err.message)) showCodeStep(false);
+    } finally {
+      $("#auth-submit").disabled = false;
+    }
+    return;
+  }
   if (setupMode && pass !== $("#auth-pass2").value) {
     $("#auth-error").textContent = "As senhas não coincidem.";
     return;
   }
   $("#auth-submit").disabled = true;
   try {
-    await (setupMode ? API.setup(user, pass) : API.login(user, pass));
+    if (setupMode) await API.setup(user, pass);
+    else {
+      const step = await API.login(user, pass);
+      if (step?.challenge) { pendingChallenge = step.challenge; showCodeStep(true); return; }
+    }
     $("#auth-pass").value = $("#auth-pass2").value = "";
     startApp();
   } catch (err) {
@@ -106,7 +140,7 @@ function go(view) {
   $("#page-title").textContent = t;
   $("#page-sub").textContent = s;
   if (view === "devices") renderDeviceList();
-  if (view === "notifications") { renderNotifications(); markRead(); }
+  if (view === "notifications") { renderNotifications(); markRead(); pushCard?.render(); }
   if (view === "security") loadSecurity();
   if (view === "settings") loadSettingsPage();
   if (monitor) view === "monitor" ? monitor.show() : monitor.hide();
@@ -120,10 +154,21 @@ document.addEventListener("click", (e) => {
 });
 
 // ----------------------------------------------------------------- inicialização
+let tfCard = null;
+let pushCard = null;
+let enrollOnly = false;
+
 async function startApp() {
   $("#auth-view").classList.add("hidden");
   $("#app-view").classList.remove("hidden");
   applyRole(API.currentUser);
+  tfCard ??= new TwoFactorCard(() => { if (enrollOnly && API.currentUser?.totp_enabled) startApp(); else loadSettingsPage(); });
+  pushCard ??= new PushCard();
+  const me = await API.api("/api/auth/me").catch(() => ({}));
+  enrollOnly = !!me.must_enroll_2fa;
+  document.body.classList.toggle("enroll-only", enrollOnly);
+  $("#enroll-banner").classList.toggle("hidden", !enrollOnly);
+  if (enrollOnly) { state.live?.close(); go("settings"); return; }
   files ??= new FileBrowser({ device: () => state.devices.get(state.selected), devices: () => [...state.devices.values()], live: () => state.live });
   power ??= new PowerCenter({ device: () => state.devices.get(state.selected), live: () => state.live });
   remote ??= new RemoteViewer({ live: () => state.live, device: (id) => state.devices.get(id) });
@@ -183,10 +228,10 @@ async function startApp() {
     state.notifications = state.notifications.slice(0, 100);
     updateBadge();
     toast(n.message, n.level);
-    browserNotify(n);
     if (state.view === "notifications") { renderNotifications(); markRead(); }
     if (state.view === "dashboard") renderActivity();
   });
+  live.addEventListener("enroll_required", () => startApp());
   live.connect();
   go(state.view);
 }
@@ -495,18 +540,6 @@ async function markRead() {
 }
 $("#read-all-btn").addEventListener("click", markRead);
 
-function browserNotify(n) {
-  if (!("Notification" in window) || Notification.permission !== "granted" || !document.hidden) return;
-  new Notification("EINSTEIN REMOTE", { body: n.message, icon: "/assets/icon.svg", tag: `er-${n.id}` });
-}
-function updatePushBtn() {
-  const b = $("#push-btn");
-  if (!("Notification" in window)) { b.textContent = "Navegador sem suporte a alertas"; b.disabled = true; return; }
-  if (Notification.permission === "granted") { b.textContent = "Alertas do navegador ativos"; b.disabled = true; }
-  if (Notification.permission === "denied") { b.textContent = "Alertas bloqueados no navegador"; b.disabled = true; }
-}
-$("#push-btn").addEventListener("click", async () => { await Notification.requestPermission(); updatePushBtn(); });
-updatePushBtn();
 
 // ----------------------------------------------------------------- segurança
 async function loadSecurity() {
@@ -570,7 +603,12 @@ async function loadSettingsPage() {
   } catch (err) { toast(err.message, "error"); }
   $$("input, button", form).forEach((el) => (el.disabled = !canEdit));
   $("#alerts-ro").classList.toggle("hidden", canEdit);
-  if (API.currentUser.role === "owner") loadUsers();
+  tfCard?.render();
+  if (enrollOnly) return;
+  if (API.currentUser.role === "owner") {
+    loadUsers();
+    API.api("/api/settings").then((s) => ($("#req-2fa").checked = !!s.require_2fa)).catch(() => {});
+  }
 }
 
 $("#alerts-form").addEventListener("submit", async (e) => {
@@ -613,11 +651,11 @@ async function loadUsers() {
   $("#user-list").innerHTML = users.map((u) => `
     <div class="list-item" data-uid="${u.id}">
       <div class="meta">
-        <b>${esc(u.username)}<span class="role-tag ${esc(u.role)}">${esc(ROLE_NAMES[u.role])}</span></b>
+        <b>${esc(u.username)}<span class="role-tag ${esc(u.role)}">${esc(ROLE_NAMES[u.role])}</span>${u.totp_enabled ? `<span class="role-tag tf">2FA</span>` : ""}</b>
         <small>Acesso: ${esc(accessLabel(u))}</small>
         <small>Criado em ${dateTime(u.created_at)} · último login ${u.last_login ? dateTime(u.last_login) : "nunca"}</small>
       </div>
-      ${u.role === "owner" ? "" : `<div class="row"><button class="btn ghost sm" data-act="edit">Editar</button><button class="btn danger sm" data-act="delete">Remover</button></div>`}
+      ${u.role === "owner" ? "" : `<div class="row">${u.totp_enabled ? `<button class="btn ghost sm" data-act="reset2fa">Redefinir 2FA</button>` : ""}<button class="btn ghost sm" data-act="edit">Editar</button><button class="btn danger sm" data-act="delete">Remover</button></div>`}
     </div>`).join("");
 }
 
@@ -675,6 +713,12 @@ $("#user-list").addEventListener("click", async (e) => {
   if (!btn) return;
   const u = users.find((x) => x.id === Number(btn.closest("[data-uid]").dataset.uid));
   if (btn.dataset.act === "edit") return openUserDialog(u);
+  if (btn.dataset.act === "reset2fa") {
+    if (!(await confirmDialog("Redefinir verificação em duas etapas", `Use quando "${u.username}" perdeu o celular e os códigos de recuperação. As sessões dele serão encerradas e ele precisará ativar o 2FA de novo.`, "Redefinir"))) return;
+    try { await API.api(`/api/users/${u.id}/reset-2fa`, { method: "POST" }); toast("2FA redefinido.", "warning"); loadUsers(); }
+    catch (err) { toast(err.message, "error"); }
+    return;
+  }
   if (!(await confirmDialog("Remover usuário", `"${u.username}" perderá o acesso imediatamente e todas as sessões dele serão encerradas.`, "Remover"))) return;
   try {
     await API.api(`/api/users/${u.id}`, { method: "DELETE" });
@@ -695,3 +739,22 @@ setInterval(() => { if (state.view === "dashboard" && state.selected) { const d 
     showAuth();
   }
 })();
+
+// ----------------------------------------------------------------- Fase 8: política 2FA e sessões
+$("#req-2fa").addEventListener("change", async (e) => {
+  const on = e.target.checked;
+  if (on && !API.currentUser.totp_enabled) {
+    e.target.checked = false;
+    return toast("Ative primeiro a verificação em duas etapas na sua própria conta.", "warning");
+  }
+  try {
+    await API.api("/api/settings", { method: "PUT", body: { require_2fa: on } });
+    toast(on ? "2FA agora é obrigatório para todos os usuários." : "2FA deixou de ser obrigatório.", on ? "info" : "warning");
+  } catch (err) { e.target.checked = !on; toast(err.message, "error"); }
+});
+
+$("#sess-revoke-all").addEventListener("click", async () => {
+  if (!(await confirmDialog("Encerrar outras sessões", "Todos os outros navegadores e celulares conectados a esta conta serão desconectados.", "Encerrar"))) return;
+  try { const r = await API.api("/api/sessions", { method: "DELETE" }); toast(`${r.revoked} sessão(ões) encerrada(s).`); loadSecurity(); }
+  catch (err) { toast(err.message, "error"); }
+});

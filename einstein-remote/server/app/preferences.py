@@ -20,6 +20,7 @@ DEFAULTS: dict = {
     "notify_high_temp": True,
     "notify_connection_failures": True,
     "notify_commands": False,
+    "require_2fa": False,
 }
 
 
@@ -38,6 +39,7 @@ class SettingsUpdate(BaseModel):
     notify_high_temp: bool | None = None
     notify_connection_failures: bool | None = None
     notify_commands: bool | None = None
+    require_2fa: bool | None = None
 
 
 class Preferences:

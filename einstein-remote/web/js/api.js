@@ -57,7 +57,16 @@ export async function api(path, opts = {}) {
 }
 
 export const authStatus = () => raw("/api/auth/status", { auth: false });
-export async function login(username, password) { setSession(await raw("/api/auth/login", { method: "POST", body: { username, password }, auth: false })); }
+/** Retorna null se entrou; ou {challenge} se a conta exige o código do autenticador. */
+export async function login(username, password) {
+  const data = await raw("/api/auth/login", { method: "POST", body: { username, password }, auth: false });
+  if (data.two_factor) return { challenge: data.challenge };
+  setSession(data);
+  return null;
+}
+export async function verify2fa(challenge, code) {
+  setSession(await raw("/api/auth/2fa/verify", { method: "POST", body: { challenge, code }, auth: false }));
+}
 export async function setup(username, password) { setSession(await raw("/api/auth/setup", { method: "POST", body: { username, password }, auth: false })); }
 export async function logout() {
   try { await api("/api/auth/logout", { method: "POST" }); } finally { accessToken = null; currentUser = null; clearTimeout(refreshTimer); }
@@ -111,6 +120,7 @@ export class Live extends EventTarget {
       if (ev.code === 4401) {
         try { await refresh(); } catch { onSessionLost(); return; }
       }
+      if (ev.code === 4403) { this.closed = true; this.emit("enroll_required", {}); return; } // política "exigir 2FA"
       setTimeout(() => this.connect(), this.backoff);
       this.backoff = Math.min(this.backoff * 2, 15000);
     };

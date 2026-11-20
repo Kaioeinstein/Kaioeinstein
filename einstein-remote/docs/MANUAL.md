@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.7, Fase 7)
+# EINSTEIN REMOTE — Manual de utilização (v0.8, Fase 8)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -99,6 +99,8 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
   - No painel: escolha a pasta liberada, navegue pelas subpastas, **Baixar** (usa o download normal do navegador, inclusive no celular), **Enviar arquivos** (ou arraste e solte), **Nova pasta** e **Copiar para…** outro computador online.
   - Cada transferência é conferida com SHA-256; o painel mostra “Enviado e verificado”. Se já existir um arquivo com o mesmo nome, o novo recebe “nome (1).ext”.
   - Limite de upload do servidor: 4 GB por arquivo (ajustável com `EINSTEIN_MAX_UPLOAD_MB`).
+- **Verificação em duas etapas** (Ajustes › Verificação em duas etapas): *Ativar* → escaneie o QR code no Google/Microsoft Authenticator, Authy ou 1Password → digite o código → **guarde os 10 códigos de recuperação** (botão *Baixar*). A partir daí o login pede o código de 6 dígitos. O proprietário pode *Exigir 2FA de todos* (em Usuários e permissões) e *Redefinir 2FA* de quem perdeu o celular.
+- **Notificações push** (Alertas › Notificações push neste aparelho): *Ativar* em cada celular/computador, escolhendo o nível (todas, avisos e críticas, só críticas), e *Enviar teste*. Exigem **HTTPS** (ou localhost). No iPhone/iPad: Compartilhar › *Adicionar à Tela de Início* e abrir por lá (iOS 16.4+). O servidor precisa de acesso à internet para entregar ao serviço de push do navegador.
 - **Dispositivos:** gerar código, renomear, revogar.
 - **Alertas:** conexão/desconexão, CPU alta, RAM no limite, temperatura alta, tentativas de acesso; opção de alertas nativos do navegador.
 - **Segurança:** sessões ativas (revogar) e registro de auditoria.
@@ -118,7 +120,7 @@ Abra o endereço do servidor no navegador e use **Adicionar à tela inicial** �
 - **Desempenho da tela:** ~10–15 quadros/s em rede boa; em rede lenta a taxa cai automaticamente (sem atraso acumulado). Telas paradas quase não consomem banda.
 - Só um agente roda por usuário do Windows; abrir de novo avisa que já está em execução.
 - Registro local: `%LOCALAPPDATA%\EinsteinRemote\logs\agent.log` (rotativo, até ~6 MB).
-- As notificações aparecem no painel e como alerta nativo do navegador (com a página aberta em segundo plano). Push com o app fechado chega na Fase 8.
+- Notificações push com o app fechado exigem HTTPS e um navegador compatível (Chrome, Edge, Firefox, Safari 16.4+ instalado na Tela de Início).
 
 ## 7. Variáveis de ambiente do servidor
 | Variável | Padrão | Descrição |
@@ -129,7 +131,15 @@ Abra o endereço do servidor no navegador e use **Adicionar à tela inicial** �
 | `EINSTEIN_REFRESH_TTL` | `604800` | Validade da sessão (s) |
 | `EINSTEIN_COOKIE_SECURE` | `0` | `1` com HTTPS |
 
-## 8. Testes
+## 8. Recuperação no servidor
+Se o **proprietário** perder o celular e os códigos de recuperação, no computador do servidor (pasta `einstein-remote`):
+```bash
+PYTHONPATH=server python -m app.admin reset-2fa kaio        # desativa o 2FA e encerra as sessões
+PYTHONPATH=server python -m app.admin reset-password kaio   # define uma nova senha
+```
+(No Windows: `set PYTHONPATH=server` antes.) Exige acesso local à máquina do servidor — não é possível pela internet.
+
+## 9. Testes
 ```bash
 pip install -r requirements-dev.txt
 python -m pytest -q

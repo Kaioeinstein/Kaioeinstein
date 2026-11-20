@@ -84,6 +84,16 @@ Camadas, todas obrigatórias:
 - **Links de download** são de uso único, expiram em 60 s e só são emitidos para administradores com acesso ao computador. O navegador não consegue abrir transferências diretamente no agente — somente o servidor.
 - Downloads, uploads (inclusive falhos), cópias e novas pastas são auditados.
 
+## Fase 8 — autenticação forte e alertas
+- **Verificação em duas etapas (TOTP, RFC 6238)**: senha correta gera apenas um desafio de 5 minutos; a sessão só é criada após o código do aplicativo autenticador. O mesmo código não vale duas vezes (proteção contra replay), 5 erros bloqueiam por 5 minutos e geram alerta crítico.
+- **Códigos de recuperação**: 10, de uso único, guardados só como hash e mostrados uma única vez; usar um gera alerta.
+- **Exigir 2FA de todos** (somente o proprietário liga/desliga): quem não ativou só acessa a tela de ativação — nada da API nem do tempo real.
+- **Perda do celular**: o proprietário redefine o 2FA de outro usuário (sessões encerradas); o próprio proprietário recupera pelo console do servidor (`python -m app.admin reset-2fa <usuário>`), que exige acesso local à máquina do servidor.
+- **Alerta de novo acesso**: login de um navegador/sistema/rede nunca vistos para aquela conta gera aviso.
+- **Encerrar todas as outras sessões** com um clique.
+- **Notificações push**: conteúdo cifrado de ponta a ponta (RFC 8291 — o serviço do Google/Mozilla/Apple não lê); servidor identificado por VAPID (RFC 8292, chave guardada com permissão 600); cada aparelho só recebe o que o usuário pode ver; endereços de push que apontem para a rede interna são recusados (proteção contra SSRF). Implementação conferida byte a byte com o exemplo oficial da RFC 8291.
+- O segredo TOTP fica no banco do servidor (como as demais credenciais): proteja e faça backup de `data/` com permissão restrita.
+
 ## Produção — checklist
 - Rodar com HTTPS (`scripts/run-server.sh --tls`) e `EINSTEIN_COOKIE_SECURE=1`.
 - Atrás de proxy reverso (Caddy/Nginx), encaminhar WebSocket e restringir o acesso ao diretório `data/`.

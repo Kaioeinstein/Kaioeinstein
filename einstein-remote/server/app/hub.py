@@ -152,6 +152,7 @@ class Hub:
         self.screens = ScreenManager(self)
         self.transfers = TransferManager(self)
         self.server_calls: dict[str, tuple[str, asyncio.Future]] = {}
+        self.push = None  # PushDispatcher (definido em main.py)
 
     # -- envio seguro --------------------------------------------------------
     @staticmethod
@@ -200,6 +201,8 @@ class Hub:
 
     async def notify(self, level: str, kind: str, message: str, device_id: str | None = None) -> None:
         note = self.db.add_notification(level, kind, message, device_id)
+        if self.push:
+            self.push.dispatch(note)  # notificação push para aparelhos com o app fechado
         for c in [c for c in list(self.clients) if c.can_see_note(note)]:
             if not await self._send(c.ws, {"type": "notification", "data": note}):
                 self.clients.discard(c)

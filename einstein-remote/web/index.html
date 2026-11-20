@@ -34,6 +34,11 @@
       <label>Usuário<input id="auth-user" name="username" autocomplete="username" required minlength="3" maxlength="64"></label>
       <label>Senha<input id="auth-pass" name="password" type="password" autocomplete="current-password" required></label>
       <label id="auth-pass2-wrap" class="hidden">Confirmar senha<input id="auth-pass2" type="password" autocomplete="new-password"></label>
+      <div id="auth-2fa" class="hidden form-grid">
+        <label>Código do aplicativo autenticador
+          <input id="auth-code" inputmode="numeric" autocomplete="one-time-code" maxlength="20" placeholder="000000"></label>
+        <p class="hint">Abra o Google Authenticator, Microsoft Authenticator ou similar. Perdeu o celular? Use um dos códigos de recuperação (ex.: abcde-fghjk).</p>
+      </div>
       <p id="auth-hint" class="hint hidden">Mínimo de 10 caracteres combinando maiúsculas, minúsculas, números e símbolos.</p>
       <p id="auth-error" class="error" role="alert"></p>
       <button class="btn primary" type="submit" id="auth-submit">Entrar</button>
@@ -269,8 +274,20 @@
         <article class="glass">
           <div class="card-head"><h3>Central de notificações</h3>
             <div class="row">
-              <button class="btn ghost sm" id="push-btn">Ativar alertas no navegador</button>
+              <span class="pill off" id="push-state">Push</span>
               <button class="btn ghost sm" id="read-all-btn">Marcar todas como lidas</button>
+            </div>
+          </div>
+          <div class="push-box">
+            <div><b>Notificações push neste aparelho</b><p class="muted small">Chegam mesmo com o painel fechado (celular ou computador), com criptografia de ponta a ponta.</p>
+              <p class="error small hidden" id="push-problem"></p></div>
+            <div class="row">
+              <select id="push-level" class="select" aria-label="Nível mínimo">
+                <option value="info">Todas</option><option value="warning" selected>Avisos e críticas</option><option value="critical">Somente críticas</option>
+              </select>
+              <button class="btn primary sm" id="push-on">Ativar</button>
+              <button class="btn ghost sm hidden" id="push-test">Enviar teste</button>
+              <button class="btn ghost sm hidden" id="push-off">Desativar</button>
             </div>
           </div>
           <ul id="notif-list" class="feed big"></ul>
@@ -280,7 +297,7 @@
       <!-- SEGURANÇA -->
       <section data-page="security" class="page hidden">
         <article class="glass">
-          <div class="card-head"><h3>Sessões ativas</h3><button class="btn ghost sm mobile-logout" id="logout-btn-mobile">Sair desta conta</button></div>
+          <div class="card-head"><h3>Sessões ativas</h3><button class="btn ghost sm" id="sess-revoke-all">Encerrar todas as outras</button><button class="btn ghost sm mobile-logout" id="logout-btn-mobile">Sair desta conta</button></div>
           <div id="session-list" class="list"></div>
         </article>
         <article class="glass" id="audit-card">
@@ -290,6 +307,9 @@
       </section>
       <!-- AJUSTES -->
       <section data-page="settings" class="page hidden">
+        <div id="enroll-banner" class="glass enroll-banner hidden" role="alert">
+          <b>Verificação em duas etapas obrigatória.</b> O proprietário exige 2FA de todos os usuários. Ative abaixo para liberar o painel.
+        </div>
         <div class="grid two">
           <article class="glass">
             <div class="card-head"><h3>Limites de alerta</h3><small class="muted" id="alerts-ro">somente administradores podem alterar</small></div>
@@ -333,8 +353,45 @@
           </article>
         </div>
 
+        <article class="glass" id="tf-card">
+          <div class="card-head"><h3>Verificação em duas etapas</h3><span class="pill off" id="tf-status">Desativada</span></div>
+          <div id="tf-off">
+            <p class="muted">Além da senha, o login pede um código de 6 dígitos que muda a cada 30 segundos no seu celular
+              (Google Authenticator, Microsoft Authenticator, Authy, 1Password…). Quem descobrir sua senha não consegue entrar.</p>
+            <button class="btn primary" id="tf-start">Ativar verificação em duas etapas</button>
+          </div>
+          <div id="tf-setup" class="hidden tf-setup">
+            <img id="tf-qr" alt="QR code para o aplicativo autenticador" width="200" height="200">
+            <div class="form-grid">
+              <p>1. No aplicativo autenticador, toque em <b>+</b> e escaneie o QR code.<br>
+                <span class="muted small">Sem câmera? Digite a chave: <code id="tf-secret"></code></span></p>
+              <form id="tf-enable-form" class="form-grid">
+                <label>2. Digite o código de 6 dígitos que aparece no aplicativo
+                  <input id="tf-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required></label>
+                <p class="error" id="tf-error"></p>
+                <div class="row"><button class="btn primary" type="submit">Confirmar e ativar</button></div>
+              </form>
+            </div>
+          </div>
+          <div id="tf-codes" class="hidden form-grid">
+            <p><b>Guarde estes códigos de recuperação.</b> Cada um permite entrar UMA vez se você perder o celular. Eles não serão mostrados de novo.</p>
+            <ol id="tf-code-list" class="tf-code-list"></ol>
+            <div class="row"><button class="btn ghost" id="tf-download">Baixar (.txt)</button><button class="btn primary" id="tf-done">Já guardei</button></div>
+          </div>
+          <div id="tf-on" class="hidden">
+            <p class="muted">Ativa. Para desativar, confirme a senha e um código do aplicativo (ou um código de recuperação).</p>
+            <form id="tf-disable-form" class="row tf-disable">
+              <input class="input" type="password" name="password" placeholder="Senha" autocomplete="current-password" required>
+              <input class="input" name="code" placeholder="Código" inputmode="numeric" maxlength="20" required>
+              <button class="btn danger" type="submit">Desativar</button>
+            </form>
+          </div>
+        </article>
+
         <article class="glass owner-only" id="users-card">
-          <div class="card-head"><h3>Usuários e permissões</h3><button class="btn primary sm" id="user-new">Novo usuário</button></div>
+          <div class="card-head"><h3>Usuários e permissões</h3>
+            <div class="row"><label class="switch"><input type="checkbox" id="req-2fa"><i></i>Exigir 2FA de todos</label>
+            <button class="btn primary sm" id="user-new">Novo usuário</button></div></div>
           <div class="roles-help">
             <span><b>Proprietário</b> controle total</span>
             <span><b>Administrador</b> gerencia dispositivos, alertas e executa comandos</span>

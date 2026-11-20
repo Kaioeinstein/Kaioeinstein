@@ -105,6 +105,12 @@ async def client_socket(ws: WebSocket):
         await ws.close(code=4401)
         return
 
+    from .auth import must_enroll
+
+    if must_enroll(st, user):  # política "exigir 2FA": nada em tempo real até ativar
+        await ws.send_json({"type": "auth_error", "error": "2fa_required"})
+        await ws.close(code=4403)
+        return
     access = st.db.accessible_device_ids(user)
     client = ClientConn(ws=ws, user=user, session_id=session["id"], access=access)
     st.hub.clients.add(client)
