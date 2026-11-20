@@ -5,6 +5,7 @@ import { $, $$, ago, bytes, confirmDialog, dateTime, duration, esc, rate, toast 
 import { Monitor } from "./monitor.js";
 import { RemoteViewer } from "./remote.js";
 import { PowerCenter } from "./power.js";
+import { FileBrowser } from "./files.js";
 
 // ----------------------------------------------------------------- utilidades
 // Estado do computador: online, offline (queda), pausado ou encerrado pelo dono no próprio PC
@@ -89,10 +90,12 @@ const TITLES = {
   security: ["Segurança", "Sessões ativas e registro de auditoria."],
   settings: ["Ajustes", "Limites de alerta, sua conta, usuários e permissões."],
   monitor: ["System Monitor", "Processos, aplicativos, serviços, hardware e rede em tempo real."],
+  files: ["Arquivos", "Somente as pastas que o dono liberou no computador."],
 };
 let monitor = null;
 let remote = null;
 let power = null;
+let files = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -107,6 +110,7 @@ function go(view) {
   if (view === "security") loadSecurity();
   if (view === "settings") loadSettingsPage();
   if (monitor) view === "monitor" ? monitor.show() : monitor.hide();
+  if (view === "files") files?.show();
   if (view === "dashboard") Object.values(charts).forEach((c) => c.draw());
 }
 $$("#nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
@@ -120,6 +124,7 @@ async function startApp() {
   $("#auth-view").classList.add("hidden");
   $("#app-view").classList.remove("hidden");
   applyRole(API.currentUser);
+  files ??= new FileBrowser({ device: () => state.devices.get(state.selected), devices: () => [...state.devices.values()], live: () => state.live });
   power ??= new PowerCenter({ device: () => state.devices.get(state.selected), live: () => state.live });
   remote ??= new RemoteViewer({ live: () => state.live, device: (id) => state.devices.get(id) });
   monitor ??= new Monitor({ device: () => state.devices.get(state.selected), live: () => state.live, role: () => API.currentUser?.role });
@@ -219,6 +224,7 @@ $("#device-select").addEventListener("change", (e) => {
   localStorage.setItem("er.device", state.selected);
   renderDashboard(true);
   monitor?.deviceChanged();
+  if (state.view === "files") files?.show();
 });
 
 function setGauge(id, value, sub, { warn = 75, crit = 90, unit = "%", max = 100 } = {}) {

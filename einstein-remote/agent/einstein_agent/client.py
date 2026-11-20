@@ -32,6 +32,7 @@ from .config import AgentConfig, config_path
 from .metrics import MetricsCollector, system_info
 from .power import PowerController, PowerError
 from .screen import ScreenController, ScreenRefused
+from .transfers import UPLOAD, Transfers
 
 log = logging.getLogger("einstein.agent")
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -117,6 +118,14 @@ class Agent:
     # -- ciclo principal ----------------------------------------------------------
     async def run_forever(self) -> None:
         self._loop = asyncio.get_running_loop()
+        try:
+            from . import files
+
+            removed = await asyncio.to_thread(files.cleanup_partials)
+            if removed:
+                log.info("%d arquivo(s) temporário(s) de transferências antigas removido(s)", removed)
+        except Exception:
+            log.debug("Limpeza de temporários falhou", exc_info=True)
         self._stop = asyncio.Event()
         check_transport(self.cfg)
         backoff = 1.0
@@ -174,6 +183,8 @@ class Agent:
                 send_bytes=ws.send, send_json=lambda m: ws.send(json.dumps(m)), on_change=self.on_screen
             )
             self.power.send_json = lambda m: ws.send(json.dumps(m))
+            self.transfers = Transfers()
+            self.transfers.bind(ws.send, lambda m: ws.send(json.dumps(m)))
             if self.power.pending:  # reconectou durante um prazo: servidor volta a saber
                 await self.power._emit({"event": "scheduled", **self.power.pending})
             self._inputs: asyncio.Queue = asyncio.Queue(maxsize=256)
@@ -194,14 +205,26 @@ class Agent:
                     t.cancel()
                 input_worker.cancel()
                 await self.screen.close()  # solta teclas/botões, remove a faixa
+                await self.transfers.close()  # apaga temporários de uploads interrompidos
         return True
 
     async def _receive(self, ws) -> None:
         async for raw in ws:
             if isinstance(raw, bytes):
-                continue  # o servidor não envia binário ao agente
+                if raw[:1] == bytes([UPLOAD]):
+                    await self.transfers.chunk(raw)  # em ordem: um bloco por vez
+                continue
             msg = json.loads(raw)
             kind = msg.get("type")
+            if kind == "file_ack":
+                self.transfers.ack(msg)
+                continue
+            if kind == "file_end":
+                await self.transfers.end(msg)
+                continue
+            if kind == "file_cancel":
+                await self.transfers.cancel(str(msg.get("tid")))
+                continue
             if kind == "command":
                 asyncio.create_task(self._handle_command(ws, msg))
             elif kind == "screen_ack":
@@ -257,6 +280,31 @@ class Agent:
             return False, None, f"{type(exc).__name__}: {exc}"
         return False, None, f"Ação '{action}' não suportada por este agente"
 
+    async def _files_command(self, action: str, params: dict):
+        from . import files
+
+        try:
+            if action == "files.roots":
+                return True, await asyncio.to_thread(files.list_roots), None
+            if action == "files.list":
+                return True, await asyncio.to_thread(files.list_dir, params.get("root"), params.get("path")), None
+            if action == "files.mkdir":
+                return True, await asyncio.to_thread(files.mkdir, params.get("root"), params.get("path"), params.get("name")), None
+            if action == "files.download":
+                return True, await self.transfers.start_download(params), None
+            if action == "files.upload_start":
+                return True, await self.transfers.start_upload(params), None
+        except files.FileError as exc:
+            return False, None, str(exc)
+        except FileNotFoundError:
+            return False, None, "Arquivo ou pasta não encontrado."
+        except PermissionError:
+            return False, None, "Sem permissão no computador para este item."
+        except Exception as exc:
+            log.exception("Falha no comando de arquivos %s", action)
+            return False, None, f"{type(exc).__name__}: {exc}"
+        return False, None, f"Ação '{action}' não suportada por este agente"
+
     async def _power_command(self, action: str, params: dict):
         from . import power
 
@@ -281,6 +329,8 @@ class Agent:
             ok, data, error = await self._screen_command(action, params)
         elif action.startswith("power."):
             ok, data, error = await self._power_command(action, params)
+        elif action.startswith("files."):
+            ok, data, error = await self._files_command(action, params)
         else:
             ok, data, error = await commands.execute(action, params)
         try:

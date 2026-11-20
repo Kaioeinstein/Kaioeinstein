@@ -181,6 +181,29 @@ def cmd_remote_input(args) -> int:
     return 0
 
 
+def cmd_folders(args) -> int:
+    """Pastas que o painel pode acessar (nada é acessível até o dono liberar)."""
+    from . import files
+
+    try:
+        if args.op == "add":
+            r = files.add_root(args.path, write=args.write)
+            print(f"Liberada: {r['path']} ({'leitura e escrita' if r['write'] else 'somente leitura'})")
+        elif args.op == "remove":
+            print("Removida." if files.remove_root(args.path) else "Pasta não encontrada na lista.")
+            return 0
+    except files.FileError as e:
+        print(e)
+        return 1
+    roots = files.roots()
+    if not roots:
+        print("Nenhuma pasta liberada: o painel não acessa nenhum arquivo deste computador.")
+        print("Para liberar: einstein-agent folders add \"C:\\Users\\voce\\Documents\" [--write]")
+    for i, r in enumerate(roots):
+        print(f"[{i}] {r['path']}  ({'leitura e escrita' if r['write'] else 'somente leitura'})")
+    return 0
+
+
 def cmd_power_control(args) -> int:
     cfg = AgentConfig.load()
     cfg.allow_power = args.mode == "enable"
@@ -276,6 +299,12 @@ def main(argv: list[str] | None = None) -> int:
     si = sub.add_parser("remote-input", help="permite/bloqueia controle de mouse e teclado")
     si.add_argument("mode", choices=["enable", "disable"])
     si.set_defaults(fn=cmd_remote_input)
+
+    sf = sub.add_parser("folders", help="pastas liberadas para o painel: list | add <pasta> [--write] | remove <pasta|nº>")
+    sf.add_argument("op", choices=["list", "add", "remove"], nargs="?", default="list")
+    sf.add_argument("path", nargs="?")
+    sf.add_argument("--write", action="store_true", help="permite enviar arquivos e criar pastas (padrão: somente leitura)")
+    sf.set_defaults(fn=cmd_folders)
 
     sp2 = sub.add_parser("power-control", help="permite/bloqueia desligar, reiniciar, suspender pelo painel")
     sp2.add_argument("mode", choices=["enable", "disable"])

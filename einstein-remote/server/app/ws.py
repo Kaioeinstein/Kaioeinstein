@@ -56,9 +56,12 @@ async def agent_socket(ws: WebSocket):
             message = await ws.receive()
             if message["type"] == "websocket.disconnect":
                 break
-            if message.get("bytes") is not None:  # quadro de tela (binário)
-                if len(message["bytes"]) <= MAX_FRAME:
-                    await st.hub.screens.frame(conn.device_id, message["bytes"])
+            if message.get("bytes") is not None:  # binário: quadro de tela (0x01) ou bloco de arquivo (0x02)
+                data = message["bytes"]
+                if len(data) <= MAX_FRAME and data[:1] == b"\x01":
+                    await st.hub.screens.frame(conn.device_id, data)
+                elif data[:1] == b"\x02":
+                    await st.hub.transfers.agent_packet(conn.device_id, data)
                 continue
             raw = message.get("text") or ""
             if len(raw) > MAX_MESSAGE:
@@ -72,6 +75,8 @@ async def agent_socket(ws: WebSocket):
                 await st.hub.agent_metrics(conn, data["data"])
             elif kind == "result":
                 await st.hub.command_result(conn, data)
+            elif kind in ("file_ack", "file_event"):
+                await st.hub.transfers.agent_message(conn.device_id, data)
             elif kind == "power_event":
                 await st.hub.power_event(conn, data)
             elif kind == "screen_event":

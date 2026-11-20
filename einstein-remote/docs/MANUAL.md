@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.6, Fase 6)
+# EINSTEIN REMOTE — Manual de utilização (v0.7, Fase 7)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -54,7 +54,7 @@ Teste local sem TLS: `--server http://127.0.0.1:8000`.
 | 🔴 vermelho | Sem conexão (tenta de novo sozinho) ou vínculo revogado |
 | ⚪ cinza | Não vinculado |
 
-Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Encerrar compartilhamento de tela** (durante uma sessão) · **Acesso à tela** (permitir / perguntar / bloquear) · **Permitir controle de mouse e teclado** · **Iniciar com o Windows** · **Permitir encerrar processos pelo painel** · **Permitir desligar/reiniciar pelo painel** · **Cancelar … agendado(a)** (quando houver) · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
+Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Encerrar compartilhamento de tela** (durante uma sessão) · **Acesso à tela** (permitir / perguntar / bloquear) · **Permitir controle de mouse e teclado** · **Iniciar com o Windows** · **Permitir encerrar processos pelo painel** · **Permitir desligar/reiniciar pelo painel** · **Pastas liberadas para o painel…** · **Cancelar … agendado(a)** (quando houver) · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
 Se o vínculo for revogado no painel, aparece **Vincular este computador…** para refazer.
 
 ## 4. Comandos do agente
@@ -70,6 +70,7 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
 | `einstein-agent screen-access allow` / `ask` / `deny` | Acesso remoto à tela: sem perguntar / perguntar a cada sessão / bloqueado |
 | `einstein-agent remote-input enable` / `disable` | Permite/bloqueia controle de mouse e teclado |
 | `einstein-agent power-control enable` / `disable` | Permite/bloqueia desligar, reiniciar, suspender, hibernar e bloquear pelo painel |
+| `einstein-agent folders` · `folders add <pasta> [--write]` · `folders remove <pasta\|nº>` | Pastas que o painel pode acessar (nenhuma por padrão) |
 | `einstein-agent uninstall` | Remove vínculo, configuração e auto‑início |
 
 ## 5. Painel
@@ -93,6 +94,11 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
   - Botões ficam desativados quando o hardware não suporta (ex.: hibernação desligada — ative com `powercfg /hibernate on` como administrador).
   - Depois do desligamento o computador aparece como **Desligado pelo painel** (ou *Reiniciando…*, *Suspenso*, *Hibernando*), não como “caiu”.
   - **Ligar (Wake-on-LAN)** só funciona se o servidor estiver na mesma rede local do PC e o Wake-on-LAN estiver ativo na BIOS/UEFI e na placa de rede (Gerenciador de Dispositivos › placa de rede › Gerenciamento de energia). Pela internet, use um servidor na sua rede (ex.: Raspberry Pi) ou VPN.
+- **Arquivos** (administradores):
+  - Primeiro, **no PC**, libere as pastas: ícone do agente › *Pastas liberadas para o painel…* › *Adicionar pasta…* (marque “Permitir enviar arquivos e criar pastas” se quiser escrita). Pelo terminal: `einstein-agent folders add "C:\Users\voce\Documents" --write`.
+  - No painel: escolha a pasta liberada, navegue pelas subpastas, **Baixar** (usa o download normal do navegador, inclusive no celular), **Enviar arquivos** (ou arraste e solte), **Nova pasta** e **Copiar para…** outro computador online.
+  - Cada transferência é conferida com SHA-256; o painel mostra “Enviado e verificado”. Se já existir um arquivo com o mesmo nome, o novo recebe “nome (1).ext”.
+  - Limite de upload do servidor: 4 GB por arquivo (ajustável com `EINSTEIN_MAX_UPLOAD_MB`).
 - **Dispositivos:** gerar código, renomear, revogar.
 - **Alertas:** conexão/desconexão, CPU alta, RAM no limite, temperatura alta, tentativas de acesso; opção de alertas nativos do navegador.
 - **Segurança:** sessões ativas (revogar) e registro de auditoria.

@@ -87,6 +87,8 @@ def main() -> int:
         print(diag.stdout.strip())
         assert "Captura de tela: ok" in diag.stdout, diag.stdout + diag.stderr  # mss empacotado e funcionando
         assert "Mouse e teclado remotos: ok" in diag.stdout, diag.stdout + diag.stderr
+        folders = subprocess.run([str(cli), "folders"], capture_output=True, encoding="utf-8", errors="replace", env=env)
+        assert "Nenhuma pasta liberada" in folders.stdout, folders.stdout + folders.stderr  # nada acessível por padrão
         if os.name == "nt":  # no Windows a faixa de aviso (Tk) é obrigatória no pacote
             assert "Avisos visíveis (faixa/pedido de permissão): ok" in diag.stdout, diag.stdout
 

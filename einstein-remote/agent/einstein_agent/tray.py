@@ -106,6 +106,14 @@ class TrayApp:
         except Exception:
             log.exception("Falha ao cancelar ação de energia")
 
+    def open_folders(self, *_):
+        def run():
+            from .folders_window import run_folders_window
+
+            run_folders_window()
+
+        threading.Thread(target=run, name="folders-window", daemon=True).start()
+
     def toggle_power(self, *_):
         cfg = self.cfg
         cfg.allow_power = not cfg.allow_power
@@ -195,6 +203,7 @@ class TrayApp:
               checked=lambda item: self.cfg.allow_remote_input, visible=paired),
             M("Permitir desligar/reiniciar pelo painel", self.toggle_power,
               checked=lambda item: self.cfg.allow_power, visible=paired),
+            M("Pastas liberadas para o painel…", self.open_folders, visible=paired),
             SEP,
             M("Ver registro (log)", self.open_log),
             M("Abrir pasta de configuração", self.open_config),

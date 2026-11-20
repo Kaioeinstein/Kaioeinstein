@@ -48,9 +48,10 @@
       <nav class="nav" id="nav">
         <button data-view="dashboard" class="active"><i class="ic ic-grid"></i><span>Painel</span></button>
         <button data-view="monitor"><i class="ic ic-cpu"></i><span>Monitor</span></button>
+        <button data-view="files"><i class="ic ic-folder"></i><span>Arquivos</span></button>
         <button data-view="devices"><i class="ic ic-pc"></i><span><b class="lbl-full">Dispositivos</b><b class="lbl-short">PCs</b></span></button>
         <button data-view="notifications"><i class="ic ic-bell"></i><span>Alertas</span><em id="notif-badge" class="badge hidden">0</em></button>
-        <button data-view="security"><i class="ic ic-shield"></i><span><b class="lbl-full">Segurança</b><b class="lbl-short">Sessões</b></span></button>
+        <button data-view="security" class="nav-desktop"><i class="ic ic-shield"></i><span><b class="lbl-full">Segurança</b><b class="lbl-short">Sessões</b></span></button>
         <button data-view="settings"><i class="ic ic-gear"></i><span>Ajustes</span></button>
       </nav>
       <div class="side-user">
@@ -222,6 +223,26 @@
         </article>
       </section>
 
+      <!-- ARQUIVOS -->
+      <section data-page="files" class="page hidden">
+        <article class="glass">
+          <div class="card-head fl-head">
+            <div class="row fl-where"><select id="fl-root" class="select" aria-label="Pasta liberada"></select><nav id="fl-crumbs" class="crumbs" aria-label="Caminho"></nav></div>
+            <div class="row fl-tools">
+              <button class="btn ghost sm" id="fl-refresh">Atualizar</button>
+              <button class="btn ghost sm write-only hidden" id="fl-mkdir">Nova pasta</button>
+              <label class="btn primary sm write-only hidden" id="fl-upload-btn">Enviar arquivos<input type="file" id="fl-upload" multiple class="hidden"></label>
+            </div>
+          </div>
+          <p class="muted small" id="fl-meta"></p>
+          <div id="fl-drop" class="fl-drop"><div id="fl-list"></div><div class="fl-drop-hint">Solte os arquivos para enviar ao computador</div></div>
+        </article>
+        <article class="glass hidden" id="fl-transfers">
+          <div class="card-head"><h3>Transferências</h3><small class="muted">conferidas com SHA-256 de ponta a ponta</small></div>
+          <div id="fl-tlist" class="fl-tlist"></div>
+        </article>
+      </section>
+
       <!-- DISPOSITIVOS -->
       <section data-page="devices" class="page hidden">
         <article class="glass">
@@ -299,7 +320,7 @@
           </article>
 
           <article class="glass">
-            <div class="card-head"><h3>Minha conta</h3><span class="pill on" id="me-role">—</span></div>
+            <div class="card-head"><h3>Minha conta</h3><button class="btn ghost sm nav-mobile-only" data-goto="security">Sessões e auditoria</button><span class="pill on" id="me-role">—</span></div>
             <form id="password-form" class="form-grid">
               <input type="text" autocomplete="username" id="pw-username" class="hidden" tabindex="-1">
               <label>Senha atual<input type="password" name="current_password" autocomplete="current-password" required></label>
@@ -333,6 +354,21 @@
       <div class="row end">
         <button class="btn ghost" value="cancel">Cancelar</button>
         <button class="btn danger" value="ok" id="confirm-ok">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- COPIAR ENTRE COMPUTADORES -->
+  <dialog id="copy-dialog" class="glass dialog">
+    <form id="copy-form" class="form-grid">
+      <h3 id="copy-title">Copiar</h3>
+      <label>Para o computador<select id="copy-device" class="select"></select></label>
+      <label>Pasta de destino<select id="copy-root" class="select"></select></label>
+      <p class="hint">O arquivo vai direto de um computador para o outro pelo servidor, com verificação SHA-256. Se já existir, recebe um novo nome.</p>
+      <p class="error" id="copy-error"></p>
+      <div class="row end">
+        <button class="btn ghost" type="button" id="copy-cancel">Cancelar</button>
+        <button class="btn primary" type="submit" id="copy-ok">Copiar</button>
       </div>
     </form>
   </dialog>

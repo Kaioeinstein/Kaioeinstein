@@ -27,6 +27,7 @@ from .devices import router as devices_router
 from .hub import Hub
 from .preferences import Preferences
 from .users import router as users_router
+from .files_api import router as files_router
 from .security import RateLimiter
 from .ws import router as ws_router
 
@@ -45,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             while True:
                 await asyncio.sleep(5)
                 await app.state.hub.expire_pending()
+                app.state.hub.transfers.expire()
                 if int(time.time()) % 3600 < 5:
                     app.state.db.prune_metrics(time.time() - 30 * 24 * 3600)
 
@@ -85,6 +87,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(sessions_router)
     app.include_router(devices_router)
     app.include_router(users_router)
+    app.include_router(files_router)
     app.include_router(ws_router)
 
     @app.exception_handler(404)

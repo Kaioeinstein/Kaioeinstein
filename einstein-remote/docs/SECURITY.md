@@ -76,6 +76,14 @@ Camadas, todas obrigatórias:
 - Agendamento, cancelamento (inclusive no próprio PC), falha e Wake-on-LAN são auditados e notificados.
 - Wake-on-LAN só faz broadcast para a rede geral e para a sub-rede **privada** onde o PC foi visto; nunca para endereços públicos.
 
+## Arquivos (Fase 7)
+- **Nada é acessível por padrão.** O dono libera pastas no PC (bandeja › *Pastas liberadas para o painel…* ou `einstein-agent folders add`), cada uma **somente leitura** (padrão) ou **leitura e escrita**. Não é possível liberar a raiz de um disco nem a pasta do usuário inteira.
+- **Validação no próprio PC** (o servidor não é confiável para isso): cada parte do caminho é checada (`..`, separadores, `C:`, `\\servidor`, `arquivo:fluxo`, `CON`/`NUL`/`COM1`…, caracteres de controle) e o destino final é resolvido com `realpath`; links simbólicos/junções que saiam da pasta liberada nem aparecem na listagem e são recusados.
+- **Integridade:** SHA-256 calculado pelo agente e conferido pelo servidor em todo download (se divergir, o download é interrompido); no upload o agente confere tamanho e SHA-256 antes de colocar o arquivo no lugar (o navegador também envia o próprio SHA-256 quando possível). Uploads incompletos não deixam lixo (temporários são apagados; sobras antigas são limpas na inicialização).
+- **Sem sobrescrever** por padrão: arquivos com mesmo nome recebem “nome (1).ext”.
+- **Links de download** são de uso único, expiram em 60 s e só são emitidos para administradores com acesso ao computador. O navegador não consegue abrir transferências diretamente no agente — somente o servidor.
+- Downloads, uploads (inclusive falhos), cópias e novas pastas são auditados.
+
 ## Produção — checklist
 - Rodar com HTTPS (`scripts/run-server.sh --tls`) e `EINSTEIN_COOKIE_SECURE=1`.
 - Atrás de proxy reverso (Caddy/Nginx), encaminhar WebSocket e restringir o acesso ao diretório `data/`.

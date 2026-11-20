@@ -24,6 +24,7 @@ from fastapi import WebSocket
 from .db import Database
 from .preferences import Preferences
 from .screens import ScreenManager
+from .transfers import TransferManager
 
 @dataclass(frozen=True)
 class ActionPolicy:
@@ -55,6 +56,10 @@ ALLOWED_ACTIONS: dict[str, ActionPolicy] = {
     "power.hibernate": ActionPolicy("admin", confirm=True),
     "power.lock": ActionPolicy("admin"),
     "power.cancel": ActionPolicy("admin"),
+    # Arquivos (Fase 7): somente pastas liberadas no PC; transferências passam por REST
+    "files.roots": ActionPolicy("admin", audit=False),
+    "files.list": ActionPolicy("admin", audit=False),
+    "files.mkdir": ActionPolicy("admin"),
 }
 POWER_LABELS = {"shutdown": "desligamento", "restart": "reinício", "sleep": "suspensão", "hibernate": "hibernação"}
 
@@ -145,6 +150,8 @@ class Hub:
         self._lock = asyncio.Lock()
         self._global_alerts: dict[str, float] = {}
         self.screens = ScreenManager(self)
+        self.transfers = TransferManager(self)
+        self.server_calls: dict[str, tuple[str, asyncio.Future]] = {}
 
     # -- envio seguro --------------------------------------------------------
     @staticmethod
@@ -154,6 +161,36 @@ class Hub:
             return True
         except Exception:  # conexão já encerrada
             return False
+
+    @staticmethod
+    async def _send_bytes(ws: WebSocket, data: bytes) -> bool:
+        try:
+            await ws.send_bytes(data)
+            return True
+        except Exception:
+            return False
+
+    async def server_call(self, device_id: str, action: str, params: dict, timeout: float = 30) -> dict:
+        """Comando iniciado pelo próprio servidor (ex.: abrir transferência). Retorna `data` ou levanta erro."""
+        from .transfers import TransferError
+
+        conn = self.agents.get(device_id)
+        if not conn:
+            raise TransferError("Computador offline.")
+        cmd_id = uuid.uuid4().hex
+        fut = asyncio.get_running_loop().create_future()
+        self.server_calls[cmd_id] = (device_id, fut)
+        try:
+            if not await self._send(conn.ws, {"type": "command", "id": cmd_id, "action": action, "params": params}):
+                raise TransferError("Conexão com o computador perdida.")
+            msg = await asyncio.wait_for(fut, timeout)
+        except asyncio.TimeoutError:
+            raise TransferError("O computador não respondeu a tempo.") from None
+        finally:
+            self.server_calls.pop(cmd_id, None)
+        if not msg.get("ok"):
+            raise TransferError(msg.get("error") or "Falha no computador.")
+        return msg.get("data") or {}
 
     async def broadcast(self, msg: dict, device_id: str | None = None) -> None:
         targets = [c for c in list(self.clients) if c.can_see(device_id)]
@@ -234,6 +271,10 @@ class Hub:
         device = self.db.get_device_public(conn.device_id)
         self.db.audit("agent.disconnected", device_id=conn.device_id, detail={"reason": state})
         await self.screens.agent_gone(conn.device_id)
+        await self.transfers.agent_gone(conn.device_id)
+        for cid, (dev, fut) in list(self.server_calls.items()):
+            if dev == conn.device_id and not fut.done():
+                fut.set_result({"ok": False, "error": "O computador desconectou."})
         # falha todos os comandos pendentes deste agente
         for cid, p in list(self.pending.items()):
             if p.device_id == conn.device_id:
@@ -369,6 +410,10 @@ class Hub:
 
     async def command_result(self, conn: AgentConn, msg: dict) -> None:
         cmd_id = msg.get("id")
+        call = self.server_calls.get(cmd_id)
+        if call and call[0] == conn.device_id and not call[1].done():
+            call[1].set_result(msg)
+            return
         pending = self.pending.pop(cmd_id, None)
         if not pending or pending.device_id != conn.device_id:
             return  # resultado desconhecido ou de outro dispositivo: ignorado
