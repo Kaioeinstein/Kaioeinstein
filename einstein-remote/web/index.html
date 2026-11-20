@@ -47,9 +47,10 @@
       <div class="side-brand"><div class="logo-mark sm" aria-hidden="true"></div><b>EINSTEIN</b><span>REMOTE</span></div>
       <nav class="nav" id="nav">
         <button data-view="dashboard" class="active"><i class="ic ic-grid"></i><span>Painel</span></button>
-        <button data-view="devices"><i class="ic ic-pc"></i><span>Dispositivos</span></button>
+        <button data-view="monitor"><i class="ic ic-cpu"></i><span>Monitor</span></button>
+        <button data-view="devices"><i class="ic ic-pc"></i><span><b class="lbl-full">Dispositivos</b><b class="lbl-short">PCs</b></span></button>
         <button data-view="notifications"><i class="ic ic-bell"></i><span>Alertas</span><em id="notif-badge" class="badge hidden">0</em></button>
-        <button data-view="security"><i class="ic ic-shield"></i><span>Segurança</span></button>
+        <button data-view="security"><i class="ic ic-shield"></i><span><b class="lbl-full">Segurança</b><b class="lbl-short">Sessões</b></span></button>
         <button data-view="settings"><i class="ic ic-gear"></i><span>Ajustes</span></button>
       </nav>
       <div class="side-user">
@@ -176,6 +177,29 @@
             <p id="hist-empty" class="muted small hidden">Sem histórico persistido neste período ainda (o servidor grava uma amostra por minuto).</p>
           </article>
         </div>
+      </section>
+
+      <!-- SYSTEM MONITOR -->
+      <section data-page="monitor" class="page hidden">
+        <div class="tabs" id="mon-tabs" role="tablist">
+          <button data-tab="processes" class="active">Processos</button>
+          <button data-tab="apps">Aplicativos</button>
+          <button data-tab="services">Serviços</button>
+          <button data-tab="hardware">Hardware</button>
+          <button data-tab="network">Rede</button>
+        </div>
+        <article class="glass">
+          <div class="card-head">
+            <h3 id="mon-title">Processos</h3>
+            <div class="row mon-tools">
+              <input id="mon-search" class="input" type="search" placeholder="Buscar por nome, PID ou usuário…" aria-label="Buscar">
+              <label class="switch"><input type="checkbox" id="mon-auto" checked><i></i>Auto</label>
+              <button class="btn ghost sm" id="mon-refresh">Atualizar</button>
+            </div>
+          </div>
+          <p class="muted small" id="mon-meta"></p>
+          <div id="mon-body"></div>
+        </article>
       </section>
 
       <!-- DISPOSITIVOS -->

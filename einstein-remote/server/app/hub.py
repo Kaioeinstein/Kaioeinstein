@@ -24,11 +24,24 @@ from fastapi import WebSocket
 from .db import Database
 from .preferences import Preferences
 
+@dataclass(frozen=True)
+class ActionPolicy:
+    role: str  # papel mínimo
+    confirm: bool = False  # exige confirmação explícita do usuário no painel
+    audit: bool = True  # registra envio/resultado na auditoria (leituras automáticas não)
+
+
 # Ações que o servidor aceita encaminhar. Cada fase adiciona novas entradas.
-# value = (papel mínimo, exige confirmação explícita)
-ALLOWED_ACTIONS: dict[str, tuple[str, bool]] = {
-    "ping": ("viewer", False),
-    "system.info": ("viewer", False),
+ALLOWED_ACTIONS: dict[str, ActionPolicy] = {
+    "ping": ActionPolicy("viewer"),
+    "system.info": ActionPolicy("viewer"),
+    # SYSTEM MONITOR (Fase 4): leituras atualizadas automaticamente pelo painel
+    "system.processes": ActionPolicy("viewer", audit=False),
+    "system.apps": ActionPolicy("viewer", audit=False),
+    "system.services": ActionPolicy("viewer", audit=False),
+    "system.hardware": ActionPolicy("viewer", audit=False),
+    "system.network": ActionPolicy("viewer", audit=False),
+    "process.kill": ActionPolicy("admin", confirm=True),
 }
 
 ROLE_LEVEL = {"viewer": 0, "admin": 1, "owner": 2}
@@ -100,6 +113,8 @@ class PendingCommand:
     client: ClientConn
     device_id: str
     action: str
+    audit: bool = True
+    params: dict = field(default_factory=dict)
     created: float = field(default_factory=time.time)
 
 
@@ -267,12 +282,12 @@ class Hub:
 
         if action not in ALLOWED_ACTIONS:
             return await reject("Ação não permitida")
-        min_role, needs_confirm = ALLOWED_ACTIONS[action]
-        if not role_at_least(client.user, min_role):
+        policy = ALLOWED_ACTIONS[action]
+        if not role_at_least(client.user, policy.role):
             return await reject("Permissão insuficiente")
         if not isinstance(device_id, str) or not client.can_see(device_id):
             return await reject("Sem acesso a este dispositivo")
-        if needs_confirm and msg.get("confirm") is not True:
+        if policy.confirm and msg.get("confirm") is not True:
             return await reject("Ação crítica exige confirmação")
         if not isinstance(params, dict):
             return await reject("Parâmetros inválidos")
@@ -281,8 +296,11 @@ class Hub:
             return await reject("Dispositivo offline")
 
         cmd_id = uuid.uuid4().hex
-        self.pending[cmd_id] = PendingCommand(client=client, device_id=device_id, action=action)
-        self.db.audit("command.sent", user=client.user, device_id=device_id, detail={"action": action, "params": params})
+        self.pending[cmd_id] = PendingCommand(
+            client=client, device_id=device_id, action=action, audit=policy.audit, params=params
+        )
+        if policy.audit:
+            self.db.audit("command.sent", user=client.user, device_id=device_id, detail={"action": action, "params": params})
         await self._send(client.ws, {"type": "ack", "request_id": req_id, "id": cmd_id})
         if not await self._send(conn.ws, {"type": "command", "id": cmd_id, "action": action, "params": params}):
             self.pending.pop(cmd_id, None)
@@ -294,23 +312,24 @@ class Hub:
         if not pending or pending.device_id != conn.device_id:
             return  # resultado desconhecido ou de outro dispositivo: ignorado
         ok = bool(msg.get("ok"))
-        self.db.audit(
-            "command.result",
-            user=pending.client.user,
-            device_id=conn.device_id,
-            detail={"action": pending.action, "ok": ok, "error": msg.get("error")},
-            success=ok,
-        )
+        if pending.audit:
+            detail = {"action": pending.action, "ok": ok, "error": msg.get("error")}
+            if pending.action == "process.kill":
+                detail["process"] = f"{pending.params.get('name')} (PID {pending.params.get('pid')})"
+            self.db.audit("command.result", user=pending.client.user, device_id=conn.device_id, detail=detail, success=ok)
         await self._send(
             pending.client.ws,
             {"type": "result", "id": cmd_id, "ok": ok, "data": msg.get("data"), "error": msg.get("error")},
         )
-        if self.prefs["notify_commands"]:
-            status = "executado" if ok else f"falhou ({msg.get('error')})"
-            await self.notify(
-                "info" if ok else "warning", "command",
-                f"Comando '{pending.action}' {status} por {pending.client.user['username']}", conn.device_id,
-            )
+        if pending.audit and self.prefs["notify_commands"]:
+            who = pending.client.user["username"]
+            if pending.action == "process.kill":
+                proc = f"{pending.params.get('name')} (PID {pending.params.get('pid')})"
+                text = f"Processo {proc} encerrado por {who}" if ok else f"Encerramento de {proc} falhou: {msg.get('error')}"
+            else:
+                status = "executado" if ok else f"falhou ({msg.get('error')})"
+                text = f"Comando '{pending.action}' {status} por {who}"
+            await self.notify("info" if ok else "warning", "command", text, conn.device_id)
 
     async def expire_pending(self) -> None:
         now = time.time()

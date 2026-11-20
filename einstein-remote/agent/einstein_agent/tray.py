@@ -124,6 +124,8 @@ class TrayApp:
               visible=lambda item: not self.cfg.paired or self.status.state == "rejected"),
             M("Iniciar com o Windows", self.toggle_autostart, checked=lambda item: autostart.is_enabled(),
               visible=sys.platform == "win32"),
+            M("Permitir encerrar processos pelo painel", self.toggle_process_kill,
+              checked=lambda item: self.cfg.allow_process_kill, visible=paired),
             SEP,
             M("Ver registro (log)", self.open_log),
             M("Abrir pasta de configuração", self.open_config),
@@ -155,6 +157,14 @@ class TrayApp:
                 autostart.enable(tray=True)
         except Exception as exc:
             dialogs.info(TITLE, f"Não foi possível alterar o início automático:\n{exc}", warning=True)
+        self._refresh_menu()
+
+    def toggle_process_kill(self, *_):
+        cfg = self.cfg
+        cfg.allow_process_kill = not cfg.allow_process_kill
+        cfg.save()
+        log.info("Encerramento remoto de processos %s pelo proprietário (bandeja)",
+                 "permitido" if cfg.allow_process_kill else "bloqueado")
         self._refresh_menu()
 
     def pair(self, *_):

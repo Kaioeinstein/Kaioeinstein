@@ -49,6 +49,14 @@ Trocar a própria senha exige a senha atual e encerra as demais sessões.
 - O início automático só é ligado por escolha explícita e usa a entrada padrão visível em *Gerenciador de Tarefas › Inicializar*.
 - Uma única instância por usuário; o log local nunca contém o segredo do dispositivo (verificado em teste).
 
+## Encerramento remoto de processos (Fase 4)
+Camadas, todas obrigatórias:
+1. **Servidor:** papel *administrador* ou superior, acesso ao computador e `confirm: true` (o painel exige confirmação explícita).
+2. **Agente — política local:** o dono do PC pode bloquear a função (bandeja › *Permitir encerrar processos pelo painel*, ou `einstein-agent remote-kill disable`). Lida a cada pedido.
+3. **Agente — identidade do processo:** o pedido traz PID, nome **e** hora de criação; se não baterem (PID reaproveitado por outro programa), é recusado.
+4. **Agente — processos protegidos:** núcleo do Windows (`csrss`, `lsass`, `wininit`, `winlogon`, `services`, `svchost`, `dwm`, `explorer`, antivírus...), PIDs 0/4 e o próprio agente nunca são encerrados.
+5. **Auditoria:** quem, quando, qual processo e o resultado; opcionalmente uma notificação.
+
 ## Produção — checklist
 - Rodar com HTTPS (`scripts/run-server.sh --tls`) e `EINSTEIN_COOKIE_SECURE=1`.
 - Atrás de proxy reverso (Caddy/Nginx), encaminhar WebSocket e restringir o acesso ao diretório `data/`.

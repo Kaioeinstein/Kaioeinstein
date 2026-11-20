@@ -42,13 +42,14 @@ def call(base, path, body=None, token=None, method=None):
         return json.loads(r.read())
 
 
-def wait_state(base, token, state, timeout=30):
+def wait_state(base, token, state, timeout=30, need_metrics=False):
+    """Espera o estado (e, opcionalmente, a primeira amostra de métricas, que chega logo após conectar)."""
     end = time.time() + timeout
     last = None
     while time.time() < end:
         devs = call(base, "/api/devices", token=token)
         last = devs[0]["state"] if devs else None
-        if last == state:
+        if last == state and (not need_metrics or devs[0].get("metrics")):
             return devs[0]
         time.sleep(0.5)
     raise SystemExit(f"FALHA: esperado estado '{state}', obtido '{last}'")
@@ -90,7 +91,7 @@ def main() -> int:
 
         run = subprocess.Popen([str(cli), "run"], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         procs.append(run)
-        d = wait_state(base, token, "online")
+        d = wait_state(base, token, "online", need_metrics=True)
         assert d["agent_version"] == out, d
         assert d["metrics"] and d["metrics"]["memory"]["total"] > 0
         print(f"[3/5] 'run' online com métricas reais (RAM total {d['metrics']['memory']['total'] // 2**20} MB)")

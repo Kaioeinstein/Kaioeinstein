@@ -105,6 +105,7 @@ def cmd_status(args) -> int:
     print(f"Em execução:   {'sim' if running else 'não'}")
     print(f"Pausado:       {'sim' if cfg.paused else 'não'}")
     print(f"Auto-início:   {'ativado' if autostart.is_enabled() else 'desativado'}")
+    print(f"Encerrar processos pelo painel: {'permitido' if cfg.allow_process_kill else 'bloqueado'}")
     return 0
 
 
@@ -122,6 +123,14 @@ def _set_paused(value: bool) -> int:
 def cmd_logs(args) -> int:
     text = tail(args.lines)
     print(text if text else f"(sem registros em {log_file()})")
+    return 0
+
+
+def cmd_remote_kill(args) -> int:
+    cfg = AgentConfig.load()
+    cfg.allow_process_kill = args.mode == "enable"
+    cfg.save()
+    print("Encerramento remoto de processos " + ("PERMITIDO" if cfg.allow_process_kill else "BLOQUEADO") + " neste computador.")
     return 0
 
 
@@ -195,6 +204,10 @@ def main(argv: list[str] | None = None) -> int:
     sa = sub.add_parser("autostart", help="ativa/desativa início automático com o Windows")
     sa.add_argument("mode", choices=["enable", "disable"])
     sa.set_defaults(fn=cmd_autostart)
+
+    sk = sub.add_parser("remote-kill", help="permite/bloqueia encerrar processos pelo painel")
+    sk.add_argument("mode", choices=["enable", "disable"])
+    sk.set_defaults(fn=cmd_remote_kill)
 
     su = sub.add_parser("uninstall", help="remove vínculo e configuração")
     su.add_argument("--yes", action="store_true")

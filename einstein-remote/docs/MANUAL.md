@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.3, Fase 3)
+# EINSTEIN REMOTE — Manual de utilização (v0.4, Fase 4)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -53,7 +53,7 @@ Teste local sem TLS: `--server http://127.0.0.1:8000`.
 | 🔴 vermelho | Sem conexão (tenta de novo sozinho) ou vínculo revogado |
 | ⚪ cinza | Não vinculado |
 
-Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Iniciar com o Windows** · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
+Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Iniciar com o Windows** · **Permitir encerrar processos pelo painel** · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
 Se o vínculo for revogado no painel, aparece **Vincular este computador…** para refazer.
 
 ## 4. Comandos do agente
@@ -65,11 +65,19 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
 | `einstein-agent status` | Mostra versão, vínculo, servidor, se está em execução, pausa e auto‑início |
 | `einstein-agent pause` / `resume` | Pausa/retoma (o agente em execução obedece em até 2 s) |
 | `einstein-agent autostart enable` / `disable` | Liga/desliga o início com o Windows (visível em Gerenciador de Tarefas › Inicializar) |
+| `einstein-agent remote-kill enable` / `disable` | Permite/bloqueia neste PC o encerramento de processos pelo painel |
 | `einstein-agent uninstall` | Remove vínculo, configuração e auto‑início |
 
 ## 5. Painel
 - **Tela inicial:** marca, status do computador selecionado, monitor com mini‑gráfico e indicadores ao vivo, e atalhos (testar latência, histórico, vincular PC, alertas, sessões, ajustes).
 - **Painel:** status, sistema, hostname, IP, tempo ligado, CPU, RAM, GPU (NVIDIA), temperatura (quando o SO expõe sensores), discos, rede ↓/↑, núcleos, gráficos em tempo real, histórico (1h/6h/24h/7d), últimas atividades, teste de latência.
+- **Monitor (SYSTEM MONITOR):** consulta o computador selecionado em tempo real, com atualização automática (desligável) e busca:
+  - *Processos* — CPU (como no Gerenciador de Tarefas), memória, usuário, threads; ordenação por coluna; **Encerrar** (administradores, com confirmação).
+  - *Aplicativos* — programas com janela aberta e seus títulos.
+  - *Serviços* — serviços do Windows, status e tipo de inicialização (filtro em execução/parados).
+  - *Hardware* — fabricante/modelo, placa-mãe, BIOS, processador, memória, placas de vídeo, discos, bateria.
+  - *Rede* — velocidade atual, totais, conexões por estado e cada interface (IPv4/IPv6/MAC/velocidade).
+  Processos essenciais do Windows e o próprio agente aparecem como *protegido*.
 - **Dispositivos:** gerar código, renomear, revogar.
 - **Alertas:** conexão/desconexão, CPU alta, RAM no limite, temperatura alta, tentativas de acesso; opção de alertas nativos do navegador.
 - **Segurança:** sessões ativas (revogar) e registro de auditoria.

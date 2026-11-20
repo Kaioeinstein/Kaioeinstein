@@ -54,6 +54,7 @@ inferior, gauges 2×2), instalável pela opção "Adicionar à tela inicial" —
 | `pairing.py` | Vinculação/desvinculação compartilhada por CLI e janela |
 | `logs.py` | Log rotativo (1 MB × 5) em `%LOCALAPPDATA%\EinsteinRemote\logs` |
 | `singleton.py` | Impede dois agentes no mesmo usuário |
+| `sysmon.py` | SYSTEM MONITOR: processos (CPU por processo), janelas abertas (EnumWindows), serviços, hardware (registro/DMI), rede; encerramento seguro de processos |
 | `icons.py` | Ícones gerados em código (bandeja e `.ico` do executável) |
 | `dialogs.py` | Caixas de mensagem nativas do Windows |
 | `cli.py` | `tray`, `pair`, `run`, `status`, `pause`, `resume`, `logs`, `autostart`, `uninstall` |
@@ -96,7 +97,8 @@ Toda conexão se autentica na **primeira mensagem** (nunca na URL):
 
 ### Fluxo de um comando
 1. Cliente envia `command` → servidor revalida a sessão no banco.
-2. Servidor confere **allowlist** (`hub.ALLOWED_ACTIONS`), **papel** mínimo, **acesso ao dispositivo** e **confirmação** (ações críticas).
+2. Servidor confere a política da ação em `hub.ALLOWED_ACTIONS` (**papel** mínimo, **confirmação** obrigatória e se é **auditada**) e o **acesso ao dispositivo**.
+   Leituras atualizadas automaticamente (`system.processes`, `system.services`...) não são auditadas para não inundar o registro; ações que alteram algo sempre são.
 3. Registra `command.sent` na auditoria, responde `ack` e encaminha ao agente.
 4. Agente confere a **sua própria allowlist** (`commands.REGISTRY`) e executa.
 5. Resultado volta ao cliente que pediu; `command.result` é auditado. Timeout: 30 s.
@@ -110,8 +112,8 @@ Defesa em profundidade: mesmo com o servidor comprometido, o agente só executa 
 | 1 | Arquitetura, estrutura, servidor, auth, pareamento, agente, métricas em tempo real, dashboard base, testes | ✅ concluída |
 | 2 | Tela inicial com atalhos, usuários e permissões por dispositivo, limites de alerta configuráveis, troca de senha | ✅ concluída |
 | 3 | Agente Windows: bandeja, janela de vinculação, log local, instância única, estados pausado/encerrado no painel, `.exe` + CI Windows | ✅ concluída |
-| 4 | SYSTEM MONITOR: processos, apps abertos, serviços, hardware, rede; encerrar processo com confirmação | próxima |
-| 5 | Tela em tempo real (captura DXGI/mss → JPEG/WebP), mouse e teclado (SendInput), tela cheia, consentimento visível | |
+| 4 | SYSTEM MONITOR: processos, aplicativos abertos, serviços, hardware, rede; encerrar processo com confirmação e travas | ✅ concluída |
+| 5 | Tela em tempo real (captura DXGI/mss → JPEG/WebP), mouse e teclado (SendInput), tela cheia, consentimento visível | próxima |
 | 6 | Energia: desligar, reiniciar, suspender, hibernar, cancelar (`shutdown /a`) com confirmação | |
 | 7 | Arquivos: navegação restrita a pastas autorizadas, upload/download em blocos com verificação SHA‑256 | |
 | 8 | Segurança avançada: 2FA TOTP, gestão de usuários, políticas por dispositivo, alertas por e‑mail/push | |

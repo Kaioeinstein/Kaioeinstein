@@ -81,6 +81,7 @@ class AgentConfig:
     ca_file: str = ""  # certificado da CA (para certificados autoassinados)
     allow_insecure: bool = False  # permite ws:// fora de localhost (NÃO recomendado)
     allowed_roots: list[str] = field(default_factory=list)  # pastas liberadas (fase 7)
+    allow_process_kill: bool = True  # o dono pode proibir, no próprio PC, o encerramento remoto de processos
 
     @property
     def paired(self) -> bool:

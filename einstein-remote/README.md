@@ -31,4 +31,4 @@ cd agent && pip install . && einstein-agent pair --server http://127.0.0.1:8000 
 - [Modelo de segurança](docs/SECURITY.md)
 - [Manual de utilização](docs/MANUAL.md)
 
-**Status:** Fase 3 concluída — agente com ícone na bandeja, janela de vinculação, log local, executável Windows gerado e testado no CI (Linux + Windows). 48 testes automatizados.
+**Status:** Fase 4 concluída — SYSTEM MONITOR (processos, aplicativos, serviços, hardware, rede) e encerramento seguro de processos; agente na bandeja e executável Windows testado no CI. 57 testes automatizados.

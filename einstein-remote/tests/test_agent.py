@@ -142,7 +142,8 @@ def test_pause_resume_stop_reported_to_server(live_server):
     device = lambda: http.get("/api/devices").json()[0]  # noqa: E731
     try:
         assert wait_for(lambda: device()["state"] == "online")
-        assert device()["agent_version"] == "0.3.0"
+        from einstein_agent import __version__
+        assert device()["agent_version"] == __version__
 
         runner.set_paused(True)
         assert wait_for(lambda: device()["state"] == "paused")

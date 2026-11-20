@@ -1,57 +1,14 @@
 // EINSTEIN REMOTE — Dashboard (web + mobile)
 import * as API from "./api.js";
 import { LineChart } from "./charts.js";
-
-const $ = (s, root = document) => root.querySelector(s);
-const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+import { $, $$, ago, bytes, confirmDialog, dateTime, duration, esc, rate, toast } from "./util.js";
+import { Monitor } from "./monitor.js";
 
 // ----------------------------------------------------------------- utilidades
 // Estado do computador: online, offline (queda), pausado ou encerrado pelo dono no próprio PC
 const STATE_LABELS = { online: ["Online", "on"], paused: ["Pausado no PC", "pause"], stopped: ["Agente encerrado", "pause"], offline: ["Offline", "off"] };
 const stateOf = (d) => (d.online ? "online" : d.state && STATE_LABELS[d.state] ? d.state : "offline");
 const statePill = (d) => { const [label, cls] = STATE_LABELS[stateOf(d)]; return `<span class="pill ${cls}">${label}</span>`; };
-
-const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-
-function bytes(n, digits = 1) {
-  if (n == null) return "—";
-  const u = ["B", "KB", "MB", "GB", "TB"];
-  let i = 0;
-  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
-  return `${n.toFixed(i ? digits : 0)} ${u[i]}`;
-}
-const rate = (bps) => (bps == null ? "—" : `${bytes(bps)}/s`);
-function duration(sec) {
-  if (sec == null) return "—";
-  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
-  return d ? `${d}d ${h}h ${m}min` : h ? `${h}h ${m}min` : `${m}min`;
-}
-const dateTime = (ts) => (ts ? new Date(ts * 1000).toLocaleString("pt-BR") : "—");
-function ago(ts) {
-  const s = Math.max(0, Date.now() / 1000 - ts);
-  if (s < 60) return "agora";
-  if (s < 3600) return `${Math.floor(s / 60)} min`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h`;
-  return new Date(ts * 1000).toLocaleDateString("pt-BR");
-}
-
-function toast(message, level = "info") {
-  const el = document.createElement("div");
-  el.className = `toast ${level}`;
-  el.textContent = message;
-  $("#toasts").appendChild(el);
-  setTimeout(() => el.remove(), 5000);
-}
-
-function confirmDialog(title, text, okLabel = "Confirmar") {
-  const dlg = $("#confirm-dialog");
-  $("#confirm-title").textContent = title;
-  $("#confirm-text").textContent = text;
-  $("#confirm-ok").textContent = okLabel;
-  dlg.returnValue = "";
-  dlg.showModal();
-  return new Promise((resolve) => dlg.addEventListener("close", () => resolve(dlg.returnValue === "ok"), { once: true }));
-}
 
 // ----------------------------------------------------------------- estado
 const state = {
@@ -125,7 +82,9 @@ const TITLES = {
   notifications: ["Alertas", "Eventos do sistema e de segurança."],
   security: ["Segurança", "Sessões ativas e registro de auditoria."],
   settings: ["Ajustes", "Limites de alerta, sua conta, usuários e permissões."],
+  monitor: ["System Monitor", "Processos, aplicativos, serviços, hardware e rede em tempo real."],
 };
+let monitor = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -139,6 +98,7 @@ function go(view) {
   if (view === "notifications") { renderNotifications(); markRead(); }
   if (view === "security") loadSecurity();
   if (view === "settings") loadSettingsPage();
+  if (monitor) view === "monitor" ? monitor.show() : monitor.hide();
   if (view === "dashboard") Object.values(charts).forEach((c) => c.draw());
 }
 $$("#nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
@@ -152,6 +112,7 @@ async function startApp() {
   $("#auth-view").classList.add("hidden");
   $("#app-view").classList.remove("hidden");
   applyRole(API.currentUser);
+  monitor ??= new Monitor({ device: () => state.devices.get(state.selected), live: () => state.live, role: () => API.currentUser?.role });
 
   if (!charts.perf) {
     charts.spark = new LineChart($("#hero-spark"), { series: [{ key: "cpu", color: "purple" }, { key: "ram", color: "green" }], bare: true });
@@ -181,7 +142,10 @@ async function startApp() {
     if (!d.online && prev) d.history = prev.history; // mantém o gráfico após desconexão
     state.devices.set(d.id, d);
     renderDeviceSelect();
-    if (d.id === state.selected) renderDashboard(true);
+    if (d.id === state.selected) {
+      renderDashboard(true);
+      if (state.view === "monitor" && d.online !== prev?.online) monitor.deviceChanged();
+    }
     if (state.view === "devices") renderDeviceList();
   });
   live.addEventListener("device_removed", (e) => {
@@ -244,6 +208,7 @@ $("#device-select").addEventListener("change", (e) => {
   state.selected = e.target.value;
   localStorage.setItem("er.device", state.selected);
   renderDashboard(true);
+  monitor?.deviceChanged();
 });
 
 function setGauge(id, value, sub, { warn = 75, crit = 90, unit = "%", max = 100 } = {}) {
