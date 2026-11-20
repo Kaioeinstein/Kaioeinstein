@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Testes, carga e estabilidade (Fase 9)
+# EINSTEIN REMOTE — Testes, carga e estabilidade
 
 ## Como rodar
 ```bash
@@ -22,6 +22,9 @@ Windows e executa o teste de fumaça dele contra um servidor real.
 | 2FA | vetores oficiais da RFC 6238; fluxo completo no navegador |
 | Web Push | saída idêntica byte a byte ao exemplo da RFC 8291; serviço de push local decifra com a chave do “navegador” |
 | Windows | DPAPI, registro, Tk, `SendInput`/cursor, captura, serviços, janelas, API PDH — no executor Windows do CI |
+| Instalador | no Windows do CI: instalação silenciosa, atalho, registro, vínculo e agente online, atualização com o agente aberto, desinstalação sem resíduos (`installer/smoke_setup.py`) |
+| Produção | `docker compose` com Caddy/HTTPS, IP real atrás do proxy, agente real via `wss://`, reinício do contêiner sem perda de dados (`deploy/smoke_compose.sh`) |
+| Backup | cópia com o servidor gravando; restauração em outra pasta mantém conta, sessão e dispositivo |
 | Estabilidade | servidor reiniciado com agente real conectado → agente volta sozinho; painel travado não afeta os outros |
 
 ## Resultados de carga (4 vCPUs, servidor e clientes na mesma máquina)

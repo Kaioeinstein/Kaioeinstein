@@ -1,0 +1,7 @@
+# Caddy instalado na própria máquina (sem Docker), na frente do serviço systemd.
+#   sudo cp deploy/Caddyfile.host /etc/caddy/Caddyfile   (troque o domínio)   && sudo systemctl reload caddy
+remote.seudominio.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8000
+	header -Server
+}

@@ -1,0 +1,4 @@
+# arquivos do Inno Setup: UTF-8 com BOM e CRLF, preservados byte a byte
+*.iss -text
+installer/LEIA-ANTES.txt -text
+*.sh text eol=lf

@@ -1,11 +1,26 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.9, Fase 9)
+# EINSTEIN REMOTE — Manual de utilização (v1.0)
+
+## Guia rápido (15 minutos)
+1. **Servidor** (uma máquina sempre ligada — um PC, um mini PC, um Raspberry Pi ou um VPS):
+   com Docker e um domínio apontado para ela, `EINSTEIN_DOMAIN=remote.seudominio.com docker compose up -d`
+   ([detalhes e alternativas](../deploy/README.md)).
+2. Abra `https://remote.seudominio.com` e crie a **conta do proprietário**. Ative o **2FA** em Ajustes › Minha conta.
+3. **Dispositivos › Gerar código** (vale 10 min).
+4. No PC Windows: execute **`EinsteinRemoteAgent-1.0.0-Setup.exe`**, leia a tela de explicação, escolha se quer
+   iniciar com o Windows e conclua. A janela **Vincular computador** abre: endereço do servidor + código → **Vincular**.
+5. No celular: abra o endereço do painel e use **Adicionar à tela inicial** (funciona como aplicativo e recebe notificações).
+
 
 ## 1. Requisitos
-- **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
-- **Agente:** Windows 10/11 com Python 3.10+ (o instalador .exe chega na Fase 10).
+- **Servidor:** Docker (recomendado) ou Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
+- **Agente:** Windows 10/11 64 bits — instalador `.exe`, sem Python e sem administrador.
 - **Acesso:** qualquer navegador moderno (Chrome, Edge, Safari, Firefox), no PC, tablet ou celular.
 
 ## 2. Instalar e iniciar o servidor
+**Em produção** (acesso de qualquer lugar, HTTPS automático, início com a máquina, backup):
+siga [deploy/README.md](../deploy/README.md) — Docker + Caddy ou serviço systemd.
+
+Para testar no próprio PC:
 ```bash
 cd einstein-remote
 python -m venv .venv
@@ -24,14 +39,31 @@ Instale `certs/ca.crt` como confiável no celular, ou use um domínio com certif
 
 ## 3. Instalar o agente no Windows e vincular
 
-### Opção A — executável (sem Python)
-1. Baixe `EinsteinRemoteAgent-<versão>-win64.zip` (artefato do GitHub Actions › workflow **EINSTEIN REMOTE**, ou gere com `installer\build-agent.ps1`).
-2. Extraia numa pasta (ex.: `C:\Program Files\EinsteinRemote` ou `%LOCALAPPDATA%\EinsteinRemote\app`).
-3. Execute **`EinsteinRemoteAgent.exe`**. Na primeira vez abre a janela **Vincular computador**.
+### Opção A — instalador (recomendado)
+1. Baixe `EinsteinRemoteAgent-<versão>-Setup.exe` (página **Releases** do GitHub, artefato do workflow
+   **EINSTEIN REMOTE**, ou gere com `installer\build-agent.ps1` + [Inno Setup 6](https://jrsoftware.org/isdl.php)).
+   Confira a integridade: `Get-FileHash .\EinsteinRemoteAgent-1.0.0-Setup.exe` deve bater com `SHA256SUMS.txt`.
+2. Execute. O instalador:
+   - instala só para o seu usuário em `%LOCALAPPDATA%\Programs\EinsteinRemote Agent` (**não pede administrador**);
+   - mostra antes **o que o agente faz e o que o painel pode fazer**;
+   - oferece **Iniciar o agente junto com o Windows** — **desmarcado** por padrão; numa atualização mostra o estado atual;
+   - cria o atalho **Menu Iniciar › EINSTEIN REMOTE AGENT** (e, se quiser, na Área de Trabalho);
+   - fecha o agente aberto antes de atualizar, mantendo vínculo e permissões.
+3. Ao final, abre o agente: aparece a janela **Vincular computador**.
 
-> O executável ainda não tem assinatura digital: o Windows SmartScreen pode avisar "Editor desconhecido" → *Mais informações › Executar assim mesmo*. A assinatura e o instalador `.exe` com desinstalação pelo Windows chegam na Fase 10.
+**Desinstalar:** Configurações › Aplicativos › **EINSTEIN REMOTE AGENT** › Desinstalar. Remove programa, atalhos e
+início automático, e pergunta se apaga também o vínculo e a configuração (recomendado). Revogue o dispositivo no painel.
 
-### Opção B — a partir do código-fonte (com Python 3.10+)
+Instalação/remoção silenciosa (vários PCs seus): `Setup.exe /VERYSILENT [/TASKS="autostart"]` e
+`"%LOCALAPPDATA%\Programs\EinsteinRemote Agent\unins000.exe" /VERYSILENT [/PURGE]` (`/PURGE` apaga o vínculo).
+
+> Sem assinatura digital, o Windows SmartScreen avisa "Editor desconhecido" → *Mais informações › Executar assim mesmo*.
+> Os builds de release são assinados automaticamente quando há um certificado configurado (ver [deploy/README.md](../deploy/README.md#publicar-uma-versão)).
+
+### Opção B — versão portátil (.zip)
+Extraia `EinsteinRemoteAgent-<versão>-win64.zip` numa pasta sua e execute **`EinsteinRemoteAgent.exe`**.
+
+### Opção C — a partir do código-fonte (com Python 3.10+)
 ```powershell
 powershell -ExecutionPolicy Bypass -File installer\install-agent.ps1
 ```

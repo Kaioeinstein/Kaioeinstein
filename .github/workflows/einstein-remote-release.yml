@@ -1,0 +1,61 @@
+name: EINSTEIN REMOTE — Release
+
+# Publica uma versão ao enviar uma tag vX.Y.Z (ex.: git tag v1.0.0 && git push origin v1.0.0).
+# Assinatura de código opcional: segredos WINDOWS_CERT_PFX_BASE64 e WINDOWS_CERT_PASSWORD.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Tag = versão do código
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir versões
+        working-directory: einstein-remote
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          server=$(python3 -c "import re;print(re.search(r'__version__ = \"(.+)\"', open('server/app/__init__.py').read()).group(1))")
+          agent=$(python3 -c "import re;print(re.search(r'__version__ = \"(.+)\"', open('agent/einstein_agent/__init__.py').read()).group(1))")
+          echo "tag=$tag servidor=$server agente=$agent"
+          [ "$tag" = "$server" ] && [ "$tag" = "$agent" ] || { echo "::error::A tag v$tag não corresponde à versão do código"; exit 1; }
+          grep -q "^## \[$tag\]" CHANGELOG.md || { echo "::error::CHANGELOG.md sem a seção [$tag]"; exit 1; }
+
+  build:
+    name: Testes, build e testes de fumaça
+    needs: version
+    uses: ./.github/workflows/einstein-remote.yml
+    secrets: inherit
+
+  release:
+    name: Publicar Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: EinsteinRemoteAgent-win64
+          path: out
+      - name: Checksums e notas da versão
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          cd out && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt && cd ..
+          awk -v v="$tag" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' einstein-remote/CHANGELOG.md > notes.md
+          printf '\n### Instalação\nBaixe `EinsteinRemoteAgent-%s-Setup.exe` e confira com `SHA256SUMS.txt`. Servidor: veja `einstein-remote/deploy/README.md`.\n' "$tag" >> notes.md
+          cat notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: EINSTEIN REMOTE ${{ github.ref_name }}
+          body_path: notes.md
+          files: |
+            out/*-Setup.exe
+            out/*.zip
+            out/SHA256SUMS.txt
+          fail_on_unmatched_files: true

@@ -1,0 +1,8 @@
+# HTTPS automático. Com EINSTEIN_TLS=internal usa uma CA local (rede doméstica sem domínio).
+{$EINSTEIN_DOMAIN} {
+	tls {$EINSTEIN_TLS:}
+	encode zstd gzip
+	# WebSocket (agentes e painel) funciona automaticamente
+	reverse_proxy server:8000
+	header -Server
+}

@@ -1,0 +1,40 @@
+# EINSTEIN REMOTE — servidor com HTTPS automático (Let's Encrypt) via Caddy.
+#
+#   1. Aponte um domínio para o IP desta máquina e libere as portas 80 e 443 no roteador.
+#   2. EINSTEIN_DOMAIN=remote.seudominio.com docker compose up -d
+#   3. Abra https://remote.seudominio.com e crie a conta do proprietário.
+#
+# Somente na rede local, sem domínio: EINSTEIN_DOMAIN=192.168.0.10 EINSTEIN_TLS=internal docker compose up -d
+# (o Caddy usa uma CA própria; copie o certificado raiz com o comando do MANUAL para o agente e o celular).
+services:
+  server:
+    build: .
+    image: einstein-remote:1.0.0
+    restart: unless-stopped
+    environment:
+      EINSTEIN_COOKIE_SECURE: "1"
+      FORWARDED_ALLOW_IPS: "*"   # a porta 8000 não é publicada: só o Caddy fala com o servidor
+    volumes:
+      - einstein-data:/data
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [server]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      EINSTEIN_DOMAIN: ${EINSTEIN_DOMAIN:?defina EINSTEIN_DOMAIN (domínio ou IP do servidor)}
+      EINSTEIN_TLS: ${EINSTEIN_TLS:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  einstein-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,26 @@
+﻿EINSTEIN REMOTE AGENT — o que este programa faz
+
+Este agente permite que VOCÊ acompanhe e controle este computador pelo seu painel
+EINSTEIN REMOTE (celular, tablet ou outro PC). Ele só funciona depois que você o
+vincular ao SEU servidor com um código gerado no painel.
+
+O que ele envia ao seu servidor
+  • Uso de CPU, memória, discos, rede, GPU e temperaturas.
+  • Lista de programas e processos em execução.
+  Nada é enviado a terceiros. Não há captura de senhas nem gravação do que você digita.
+
+O que o painel pode fazer — cada item pode ser bloqueado no menu da bandeja
+  • Ver a tela: aparece SEMPRE um aviso "Tela compartilhada" com o botão Encerrar.
+    Você pode escolher "perguntar a cada sessão" ou "bloquear".
+  • Mouse e teclado remotos (somente durante uma sessão de tela visível).
+  • Encerrar processos, desligar/reiniciar/suspender (com aviso e opção de cancelar).
+  • Arquivos: só nas pastas que você liberar (nenhuma vem liberada).
+
+Sempre visível e sob seu controle
+  • Ícone na bandeja do Windows com o estado: online, pausado, offline.
+  • Pausar/Retomar, Desvincular e Sair a qualquer momento.
+  • O início automático com o Windows é OPCIONAL (desmarcado na próxima tela) e
+    aparece em Gerenciador de Tarefas > Inicializar.
+  • Desinstalação completa em Configurações > Aplicativos > EINSTEIN REMOTE AGENT.
+
+Instale apenas em computadores que são seus ou que você tem autorização para administrar.

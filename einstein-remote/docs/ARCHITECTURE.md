@@ -143,4 +143,12 @@ agente ◀──{"type":"input","events":[...]}───────── servi
 | 7 | Arquivos: pastas liberadas pelo dono, navegação, download, upload, nova pasta e cópia entre computadores com SHA‑256 | ✅ concluída |
 | 8 | 2FA (TOTP) com códigos de recuperação e política obrigatória, alerta de novo acesso, notificações push com o app fechado, encerrar outras sessões | ✅ concluída |
 | 9 | Carga (500 PCs), estabilidade, painel travado isolado, GPU/temperatura no Windows, bandit e cobertura — ver [TESTING.md](TESTING.md) | ✅ concluída |
-| 10 | Instalador (.exe com Inno Setup + PyInstaller), servidor como serviço, versão 1.0 | próxima |
+| 10 | Instalador Windows (Inno Setup, por usuário, consentimento explícito, desinstalação completa), servidor em produção (Docker + Caddy/HTTPS, systemd, IP real atrás do proxy), backup, release automático com checksums e assinatura opcional — versão 1.0.0 | ✅ concluída |
+
+## Implantação (Fase 10)
+```
+Celular / navegador ──HTTPS──┐
+                             ├─► Caddy (443, Let's Encrypt) ──HTTP interno──► servidor (uvicorn --proxy-headers, usuário sem privilégios)
+Agente Windows ─────WSS──────┘                                                  └─ volume /data: einstein.db, secret.key, vapid_private.pem
+```
+Somente o proxy é exposto; o servidor confia no `X-Forwarded-For` apenas dele. Detalhes em [deploy/README.md](../deploy/README.md).

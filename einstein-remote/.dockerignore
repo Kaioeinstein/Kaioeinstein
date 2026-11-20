@@ -1,0 +1,13 @@
+data/
+agent/
+tests/
+installer/
+dist/
+build/
+.build-venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.coverage
+certs/
+*.db
