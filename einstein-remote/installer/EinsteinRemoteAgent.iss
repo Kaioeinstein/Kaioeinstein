@@ -91,8 +91,9 @@ var
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  { a opção reflete se o início automático está ligado agora (pode ter sido ligado pela bandeja) }
-  if (CurPageID = wpSelectTasks) and not TasksPageSeen then
+  { a opção reflete se o início automático está ligado agora (pode ter sido ligado pela bandeja).
+    Só com a tela visível: no modo silencioso vale o que foi pedido em /TASKS. }
+  if (CurPageID = wpSelectTasks) and not TasksPageSeen and not WizardSilent() then
   begin
     TasksPageSeen := True;
     if RegValueExists(HKEY_CURRENT_USER, '{#RunKey}', '{#RunValue}') then
