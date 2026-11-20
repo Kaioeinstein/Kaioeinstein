@@ -236,7 +236,8 @@ def test_tray_controller(live_server):
     tray._setup(tray.icon)
     try:
         assert wait_for(lambda: tray.status.state == "online")
-        assert tray.icon.title == "EINSTEIN REMOTE · Online — PC Tray"
+        # o texto do ícone é atualizado logo após o estado (mesma chamada, linha seguinte)
+        assert wait_for(lambda: tray.icon.title == "EINSTEIN REMOTE · Online — PC Tray"), tray.icon.title
         assert any("Conectado" in n for n in notes)
         assert "Pausar monitoramento" in labels() and "Desvincular este computador…" in labels()
         tray.toggle_pause()

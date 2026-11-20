@@ -107,7 +107,7 @@ async def panel(base_ws, token, device_ids, stop: asyncio.Event, stats: dict):
                 except asyncio.TimeoutError:
                     continue
                 kind = msg.get("type")
-                if kind == "metrics":
+                if kind == "metrics" and not stop.is_set():
                     stats["delivered"] += 1
                     stats["lag"].append(time.time() - msg["data"]["ts"])
                 elif kind == "ack":
@@ -187,9 +187,9 @@ async def main(n_agents: int, n_clients: int, seconds: int, stalled: int = 0) ->
             await asyncio.sleep(1)
             cpu_samples.append(proc.cpu_percent(None))
             rss.append(proc.memory_info().rss)
+        elapsed = time.time() - t0  # janela medida: sem o tempo de encerrar as conexões (lento no Windows)
         stop.set()
         await asyncio.gather(*tasks, return_exceptions=True)
-        elapsed = time.time() - t0
         online = len(http(base, "/api/devices", token=token))
         return {
             "agents": n_agents, "clients": n_clients, "stalled_clients": stalled, "seconds": seconds, "devices_listed": online,
