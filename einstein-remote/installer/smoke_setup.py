@@ -96,7 +96,11 @@ def main() -> int:
         tray, cli = APP_DIR / "EinsteinRemoteAgent.exe", APP_DIR / "einstein-agent.exe"
         check(tray.exists() and cli.exists(), f"programa instalado em {APP_DIR}")
         check(SHORTCUT.exists(), "atalho no Menu Iniciar")
-        check(reg(RUN_KEY, RUN_VALUE) == f'"{tray}"', "início automático aponta para o agente da bandeja")
+        run_value = reg(RUN_KEY, RUN_VALUE)
+        if run_value != f'"{tray}"':
+            log = (tmp / "install.log").read_text("utf-8", errors="replace")
+            print("\n".join(l for l in log.splitlines() if "Reg" in l or "Task" in l or "Run" in l)[-4000:])
+        check(run_value == f'"{tray}"', f"início automático aponta para o agente da bandeja ({run_value!r})")
         check(reg(UNINSTALL_KEY, "DisplayVersion") == version, f"aparece em Aplicativos (versão {version})")
         out = subprocess.run([str(cli), "--version"], capture_output=True, text=True, encoding="utf-8").stdout
         check(version in out, "einstein-agent.exe instalado executa")
