@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07070b">
+  <meta name="description" content="EINSTEIN REMOTE — monitoramento e controle remoto do seu computador.">
+  <title>EINSTEIN REMOTE</title>
+  <link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/css/app.css">
+  <script type="module" src="/js/app.js"></script>
+</head>
+<body>
+  <div class="bg-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <!-- ===================== TELA DE ACESSO ===================== -->
+  <section id="auth-view" class="auth hidden">
+    <div class="auth-hero">
+      <div class="logo-mark" aria-hidden="true"></div>
+      <h1 class="brand">EINSTEIN <span>REMOTE</span></h1>
+      <p class="tagline">Seu computador. Seu controle. Em qualquer lugar.</p>
+      <div class="hero-pc" aria-hidden="true">
+        <div class="hero-screen">
+          <div class="hero-line"></div>
+          <div class="hero-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="hero-stand"></div>
+      </div>
+    </div>
+    <form id="auth-form" class="glass auth-card" autocomplete="on">
+      <h2 id="auth-title">Entrar</h2>
+      <p id="auth-sub" class="muted">Acesse o painel do seu computador.</p>
+      <label>Usuário<input id="auth-user" name="username" autocomplete="username" required minlength="3" maxlength="64"></label>
+      <label>Senha<input id="auth-pass" name="password" type="password" autocomplete="current-password" required></label>
+      <label id="auth-pass2-wrap" class="hidden">Confirmar senha<input id="auth-pass2" type="password" autocomplete="new-password"></label>
+      <p id="auth-hint" class="hint hidden">Mínimo de 10 caracteres combinando maiúsculas, minúsculas, números e símbolos.</p>
+      <p id="auth-error" class="error" role="alert"></p>
+      <button class="btn primary" type="submit" id="auth-submit">Entrar</button>
+      <p class="secure-note"><span class="lock" aria-hidden="true"></span>Conexão autenticada · tokens com expiração · auditoria ativa</p>
+    </form>
+  </section>
+
+  <!-- ===================== APLICAÇÃO ===================== -->
+  <div id="app-view" class="shell hidden">
+    <aside class="sidebar glass">
+      <div class="side-brand"><div class="logo-mark sm" aria-hidden="true"></div><b>EINSTEIN</b><span>REMOTE</span></div>
+      <nav class="nav" id="nav">
+        <button data-view="dashboard" class="active"><i class="ic ic-grid"></i><span>Painel</span></button>
+        <button data-view="devices"><i class="ic ic-pc"></i><span>Dispositivos</span></button>
+        <button data-view="notifications"><i class="ic ic-bell"></i><span>Alertas</span><em id="notif-badge" class="badge hidden">0</em></button>
+        <button data-view="security"><i class="ic ic-shield"></i><span>Segurança</span></button>
+      </nav>
+      <div class="side-user">
+        <div><b id="user-name"></b><small id="user-role"></small></div>
+        <button class="btn ghost sm" id="logout-btn">Sair</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <h1 class="page-title" id="page-title">Painel</h1>
+          <p class="muted" id="page-sub">Seu computador. Seu controle. Em qualquer lugar.</p>
+        </div>
+        <div class="top-right">
+          <select id="device-select" class="select" aria-label="Dispositivo"></select>
+          <span id="live-indicator" class="live off"><i></i><span>Offline</span></span>
+        </div>
+      </header>
+
+      <!-- PAINEL -->
+      <section data-page="dashboard" class="page">
+        <div id="empty-devices" class="glass empty hidden">
+          <div class="logo-mark" aria-hidden="true"></div>
+          <h2>Nenhum computador vinculado</h2>
+          <p class="muted">Gere um código de pareamento e execute o agente no seu PC Windows.</p>
+          <button class="btn primary" data-goto="devices">Vincular computador</button>
+        </div>
+
+        <div id="dash" class="hidden">
+          <div class="grid hero-grid">
+            <article class="glass device-card">
+              <div class="device-head">
+                <div class="pc-icon" aria-hidden="true"><span></span></div>
+                <div>
+                  <h2 id="d-name">—</h2>
+                  <span id="d-status" class="pill off">Offline</span>
+                </div>
+              </div>
+              <dl class="kv">
+                <dt>Sistema</dt><dd id="d-os">—</dd>
+                <dt>Hostname</dt><dd id="d-host">—</dd>
+                <dt>Processador</dt><dd id="d-cpu-model">—</dd>
+                <dt>IP local</dt><dd id="d-ip">—</dd>
+                <dt>Tempo ligado</dt><dd id="d-uptime">—</dd>
+                <dt>Processos</dt><dd id="d-procs">—</dd>
+                <dt>Última conexão</dt><dd id="d-seen">—</dd>
+              </dl>
+              <div class="actions">
+                <button class="btn ghost sm" id="ping-btn">Testar latência</button>
+                <span id="ping-result" class="muted small"></span>
+              </div>
+            </article>
+
+            <div class="gauges">
+              <article class="glass gauge-card"><div class="gauge" id="g-cpu"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="val purple" cx="60" cy="60" r="52"/></svg><b>—</b></div><h3>CPU</h3><small id="g-cpu-sub" class="muted">—</small></article>
+              <article class="glass gauge-card"><div class="gauge" id="g-ram"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="val green" cx="60" cy="60" r="52"/></svg><b>—</b></div><h3>Memória</h3><small id="g-ram-sub" class="muted">—</small></article>
+              <article class="glass gauge-card"><div class="gauge" id="g-gpu"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="val purple" cx="60" cy="60" r="52"/></svg><b>—</b></div><h3>GPU</h3><small id="g-gpu-sub" class="muted">—</small></article>
+              <article class="glass gauge-card"><div class="gauge" id="g-temp"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"/><circle class="val green" cx="60" cy="60" r="52"/></svg><b>—</b></div><h3>Temperatura</h3><small id="g-temp-sub" class="muted">—</small></article>
+            </div>
+          </div>
+
+          <div class="grid two">
+            <article class="glass chart-card">
+              <div class="card-head"><h3>Desempenho em tempo real</h3><div class="legend"><span class="lg purple">CPU</span><span class="lg green">RAM</span></div></div>
+              <canvas id="chart-perf" height="220"></canvas>
+            </article>
+            <article class="glass chart-card">
+              <div class="card-head"><h3>Rede</h3><div class="legend"><span class="lg green">↓ <b id="net-down">—</b></span><span class="lg purple">↑ <b id="net-up">—</b></span></div></div>
+              <canvas id="chart-net" height="220"></canvas>
+            </article>
+          </div>
+
+          <div class="grid three">
+            <article class="glass">
+              <div class="card-head"><h3>Armazenamento</h3></div>
+              <div id="disks" class="bars"></div>
+            </article>
+            <article class="glass">
+              <div class="card-head"><h3>Núcleos da CPU</h3><small id="cpu-freq" class="muted"></small></div>
+              <div id="cores" class="cores"></div>
+            </article>
+            <article class="glass">
+              <div class="card-head"><h3>Últimas atividades</h3></div>
+              <ul id="activity" class="feed"></ul>
+            </article>
+          </div>
+
+          <article class="glass">
+            <div class="card-head"><h3>Histórico de desempenho</h3>
+              <div class="seg" id="hist-range">
+                <button data-h="1" class="active">1h</button><button data-h="6">6h</button><button data-h="24">24h</button><button data-h="168">7d</button>
+              </div>
+            </div>
+            <canvas id="chart-hist" height="200"></canvas>
+            <p id="hist-empty" class="muted small hidden">Sem histórico persistido neste período ainda (o servidor grava uma amostra por minuto).</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- DISPOSITIVOS -->
+      <section data-page="devices" class="page hidden">
+        <article class="glass">
+          <div class="card-head"><h3>Vincular novo computador</h3></div>
+          <form id="pair-form" class="row">
+            <input id="pair-name" class="input" placeholder="Nome do computador (ex.: PC do Escritório)" required maxlength="64">
+            <button class="btn primary" type="submit">Gerar código</button>
+          </form>
+          <div id="pair-result" class="pair-result hidden">
+            <p class="muted">Código válido por 10 minutos, uso único:</p>
+            <div class="code" id="pair-code"></div>
+            <p class="muted">No computador Windows, execute:</p>
+            <pre class="cmd" id="pair-cmd"></pre>
+          </div>
+        </article>
+        <article class="glass">
+          <div class="card-head"><h3>Computadores vinculados</h3></div>
+          <div id="device-list" class="list"></div>
+        </article>
+      </section>
+
+      <!-- NOTIFICAÇÕES -->
+      <section data-page="notifications" class="page hidden">
+        <article class="glass">
+          <div class="card-head"><h3>Central de notificações</h3>
+            <div class="row">
+              <button class="btn ghost sm" id="push-btn">Ativar alertas no navegador</button>
+              <button class="btn ghost sm" id="read-all-btn">Marcar todas como lidas</button>
+            </div>
+          </div>
+          <ul id="notif-list" class="feed big"></ul>
+        </article>
+      </section>
+
+      <!-- SEGURANÇA -->
+      <section data-page="security" class="page hidden">
+        <article class="glass">
+          <div class="card-head"><h3>Sessões ativas</h3><button class="btn ghost sm mobile-logout" id="logout-btn-mobile">Sair desta conta</button></div>
+          <div id="session-list" class="list"></div>
+        </article>
+        <article class="glass" id="audit-card">
+          <div class="card-head"><h3>Registro de auditoria</h3><button class="btn ghost sm" id="audit-refresh">Atualizar</button></div>
+          <div class="table-wrap"><table class="table"><thead><tr><th>Data</th><th>Usuário</th><th>Ação</th><th>Detalhe</th><th>IP</th><th></th></tr></thead><tbody id="audit-body"></tbody></table></div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL DE CONFIRMAÇÃO -->
+  <dialog id="confirm-dialog" class="glass dialog">
+    <form method="dialog">
+      <h3 id="confirm-title">Confirmar</h3>
+      <p id="confirm-text" class="muted"></p>
+      <div class="row end">
+        <button class="btn ghost" value="cancel">Cancelar</button>
+        <button class="btn danger" value="ok" id="confirm-ok">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+</body>
+</html>

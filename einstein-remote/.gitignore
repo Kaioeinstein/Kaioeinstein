@@ -1,0 +1,13 @@
+data/
+*.db
+*.db-*
+secret.key
+certs/
+__pycache__/
+*.pyc
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
