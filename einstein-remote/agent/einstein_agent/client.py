@@ -198,6 +198,8 @@ class Agent:
         while True:
             self._reload_if_changed()
             if self.cfg.paused:
+                # o estado local muda ANTES de avisar o servidor: ícone e painel nunca divergem
+                self._set_status("paused")
                 await self._close(ws, "paused")
                 return
             data = await asyncio.to_thread(self.collector.collect)
