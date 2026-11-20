@@ -151,13 +151,23 @@ def cmd_uninstall(args) -> int:
 
 
 def _safe_console() -> None:
-    """Saída redirecionada no Windows usa cp1252: troca caracteres sem representação em vez de falhar."""
+    """Saída consistente em qualquer terminal.
+
+    * Redirecionada (arquivo, pipe, outro programa): UTF-8 — no Windows o padrão
+      seria a página de código ANSI/ASCII e os acentos virariam "?".
+    * Console interativo: mantém a codificação do console, apenas trocando o que
+      não tiver representação em vez de falhar.
+    """
     for stream in (sys.stdout, sys.stderr):
-        if stream is not None and hasattr(stream, "reconfigure"):
-            try:
+        if stream is None or not hasattr(stream, "reconfigure"):
+            continue
+        try:
+            if stream.isatty():
                 stream.reconfigure(errors="replace")
-            except (ValueError, OSError):
-                pass
+            else:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
 
 
 def main(argv: list[str] | None = None) -> int:

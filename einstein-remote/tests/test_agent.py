@@ -249,3 +249,14 @@ def test_tray_controller(live_server):
         assert tray.icon.stopped and not tray.runner.running
     finally:
         tray.runner.stop()
+
+
+def test_cli_redirected_output_is_utf8():
+    """Saída redirecionada sai em UTF-8 mesmo com locale ASCII (caso do .exe no Windows)."""
+    import subprocess
+    import sys
+
+    env = dict(os.environ, PYTHONIOENCODING="ascii", PYTHONPATH=os.pathsep.join(["agent", "server"]))
+    out = subprocess.run([sys.executable, "-m", "einstein_agent", "status"], capture_output=True, env=env, cwd=os.path.dirname(os.path.dirname(__file__)))
+    text = out.stdout.decode("utf-8")
+    assert "Versão:" in text and "Em execução:" in text
