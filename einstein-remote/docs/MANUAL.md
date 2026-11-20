@@ -1,4 +1,4 @@
-# EINSTEIN REMOTE — Manual de utilização (v0.5, Fase 5)
+# EINSTEIN REMOTE — Manual de utilização (v0.6, Fase 6)
 
 ## 1. Requisitos
 - **Servidor:** Python 3.10+ (Windows, Linux ou macOS). Pode ser o próprio PC.
@@ -54,7 +54,7 @@ Teste local sem TLS: `--server http://127.0.0.1:8000`.
 | 🔴 vermelho | Sem conexão (tenta de novo sozinho) ou vínculo revogado |
 | ⚪ cinza | Não vinculado |
 
-Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Encerrar compartilhamento de tela** (durante uma sessão) · **Acesso à tela** (permitir / perguntar / bloquear) · **Permitir controle de mouse e teclado** · **Iniciar com o Windows** · **Permitir encerrar processos pelo painel** · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
+Menu (clique com o botão direito): **Abrir painel** · **Pausar/Retomar monitoramento** · **Encerrar compartilhamento de tela** (durante uma sessão) · **Acesso à tela** (permitir / perguntar / bloquear) · **Permitir controle de mouse e teclado** · **Iniciar com o Windows** · **Permitir encerrar processos pelo painel** · **Permitir desligar/reiniciar pelo painel** · **Cancelar … agendado(a)** (quando houver) · **Ver registro (log)** · **Abrir pasta de configuração** · **Desvincular este computador…** · **Sobre** · **Sair**.
 Se o vínculo for revogado no painel, aparece **Vincular este computador…** para refazer.
 
 ## 4. Comandos do agente
@@ -69,6 +69,7 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
 | `einstein-agent remote-kill enable` / `disable` | Permite/bloqueia neste PC o encerramento de processos pelo painel |
 | `einstein-agent screen-access allow` / `ask` / `deny` | Acesso remoto à tela: sem perguntar / perguntar a cada sessão / bloqueado |
 | `einstein-agent remote-input enable` / `disable` | Permite/bloqueia controle de mouse e teclado |
+| `einstein-agent power-control enable` / `disable` | Permite/bloqueia desligar, reiniciar, suspender, hibernar e bloquear pelo painel |
 | `einstein-agent uninstall` | Remove vínculo, configuração e auto‑início |
 
 ## 5. Painel
@@ -87,6 +88,11 @@ Se o vínculo for revogado no painel, aparece **Vincular este computador…** pa
   - **Teclas**: atalhos que o seu navegador não deixa enviar (Win, Alt+Tab, Ctrl+Shift+Esc, Alt+F4, Win+D...).
   - **Celular/tablet:** toque = clique · toque longo = botão direito · arrastar = mover o ponteiro · dois dedos = rolar · botão **Teclado** abre o teclado do celular (acentos funcionam).
   - No PC aparece a faixa *“Tela compartilhada com …”* com botão **Encerrar**.
+- **Central de energia** (no Painel, administradores): **Desligar** e **Reiniciar** (agora, 30 s, 1 min… até 1 h), **Suspender**, **Hibernar** (agora ou com prazo), **Bloquear** a tela e **Ligar** (Wake-on-LAN, quando o PC está offline).
+  - Enquanto há uma ação agendada aparece a contagem regressiva com **Cancelar**; no PC, o Windows mostra o aviso e o ícone do agente oferece *Cancelar desligamento*.
+  - Botões ficam desativados quando o hardware não suporta (ex.: hibernação desligada — ative com `powercfg /hibernate on` como administrador).
+  - Depois do desligamento o computador aparece como **Desligado pelo painel** (ou *Reiniciando…*, *Suspenso*, *Hibernando*), não como “caiu”.
+  - **Ligar (Wake-on-LAN)** só funciona se o servidor estiver na mesma rede local do PC e o Wake-on-LAN estiver ativo na BIOS/UEFI e na placa de rede (Gerenciador de Dispositivos › placa de rede › Gerenciamento de energia). Pela internet, use um servidor na sua rede (ex.: Raspberry Pi) ou VPN.
 - **Dispositivos:** gerar código, renomear, revogar.
 - **Alertas:** conexão/desconexão, CPU alta, RAM no limite, temperatura alta, tentativas de acesso; opção de alertas nativos do navegador.
 - **Segurança:** sessões ativas (revogar) e registro de auditoria.

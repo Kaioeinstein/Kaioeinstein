@@ -4,10 +4,14 @@ import { LineChart } from "./charts.js";
 import { $, $$, ago, bytes, confirmDialog, dateTime, duration, esc, rate, toast } from "./util.js";
 import { Monitor } from "./monitor.js";
 import { RemoteViewer } from "./remote.js";
+import { PowerCenter } from "./power.js";
 
 // ----------------------------------------------------------------- utilidades
 // Estado do computador: online, offline (queda), pausado ou encerrado pelo dono no próprio PC
-const STATE_LABELS = { online: ["Online", "on"], paused: ["Pausado no PC", "pause"], stopped: ["Agente encerrado", "pause"], offline: ["Offline", "off"] };
+const STATE_LABELS = {
+  online: ["Online", "on"], paused: ["Pausado no PC", "pause"], stopped: ["Agente encerrado", "pause"], offline: ["Offline", "off"],
+  power_off: ["Desligado pelo painel", "idle"], restarting: ["Reiniciando…", "pause"], sleeping: ["Suspenso", "idle"], hibernating: ["Hibernando", "idle"],
+};
 const stateOf = (d) => (d.online ? "online" : d.state && STATE_LABELS[d.state] ? d.state : "offline");
 const statePill = (d) => { const [label, cls] = STATE_LABELS[stateOf(d)]; return `<span class="pill ${cls}">${label}</span>`; };
 
@@ -88,6 +92,7 @@ const TITLES = {
 };
 let monitor = null;
 let remote = null;
+let power = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -115,6 +120,7 @@ async function startApp() {
   $("#auth-view").classList.add("hidden");
   $("#app-view").classList.remove("hidden");
   applyRole(API.currentUser);
+  power ??= new PowerCenter({ device: () => state.devices.get(state.selected), live: () => state.live });
   remote ??= new RemoteViewer({ live: () => state.live, device: (id) => state.devices.get(id) });
   monitor ??= new Monitor({ device: () => state.devices.get(state.selected), live: () => state.live, role: () => API.currentUser?.role });
 
@@ -245,6 +251,7 @@ function renderDashboard(full) {
   st.textContent = stLabel;
   st.className = `pill ${stCls}`;
   $("#d-agent").textContent = d.agent_version ? `v${d.agent_version}` : "—";
+  power?.render(d, full);
   $("#d-os").textContent = info.os || d.os || "—";
   $("#d-host").textContent = info.hostname || d.hostname || "—";
   $("#d-cpu-model").textContent = info.cpu_model ? `${info.cpu_model} (${info.cpu_cores}C/${info.cpu_threads}T)` : "—";
@@ -265,7 +272,8 @@ function renderDashboard(full) {
     renderDisks(m.disks);
     renderCores(m.cpu);
   } else {
-    const why = { paused: "Pausado no próprio PC", stopped: "Agente encerrado no PC" }[stateOf(d)] || "Computador offline";
+    const why = { paused: "Pausado no próprio PC", stopped: "Agente encerrado no PC", power_off: "Desligado pelo painel",
+    restarting: "Reiniciando…", sleeping: "Suspenso", hibernating: "Hibernando" }[stateOf(d)] || "Computador offline";
     for (const id of ["#g-cpu", "#g-ram", "#g-gpu", "#g-temp"]) setGauge(id, null, why);
     $("#net-down").textContent = $("#net-up").textContent = "—";
     $("#disks").innerHTML = `<p class="muted small">Dados disponíveis quando o computador estiver online.</p>`;

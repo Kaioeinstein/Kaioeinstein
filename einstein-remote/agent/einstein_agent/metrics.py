@@ -72,8 +72,21 @@ def _cpu_model() -> str:
     return platform.processor() or "Desconhecido"
 
 
+def _mac_for(ip: str | None) -> str | None:
+    """MAC da placa que tem o IP principal (usado para Wake-on-LAN)."""
+    link = getattr(psutil, "AF_LINK", None)
+    if not ip or link is None:
+        return None
+    for addrs in psutil.net_if_addrs().values():
+        if any(a.family == socket.AF_INET and a.address == ip for a in addrs):
+            mac = next((a.address for a in addrs if a.family == link), None)
+            return mac.replace("-", ":").lower() if mac else None
+    return None
+
+
 def system_info() -> dict:
     vm = psutil.virtual_memory()
+    ip = _primary_ip()
     return {
         "hostname": socket.gethostname(),
         "os": _os_name(),
@@ -84,7 +97,8 @@ def system_info() -> dict:
         "cpu_threads": psutil.cpu_count(logical=True),
         "ram_total": vm.total,
         "boot_time": psutil.boot_time(),
-        "ip": _primary_ip(),
+        "ip": ip,
+        "mac": _mac_for(ip),
         "ip_addresses": _local_ips(),
         "agent_version": __version__,
         "python": platform.python_version(),

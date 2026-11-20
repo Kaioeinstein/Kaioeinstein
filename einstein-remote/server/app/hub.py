@@ -47,7 +47,16 @@ ALLOWED_ACTIONS: dict[str, ActionPolicy] = {
     "screen.monitors": ActionPolicy("admin", audit=False),
     "screen.start": ActionPolicy("admin"),
     "screen.stop": ActionPolicy("viewer", audit=False),
+    # Energia (Fase 6): ações que tiram o PC do ar exigem confirmação explícita
+    "power.status": ActionPolicy("viewer", audit=False),
+    "power.shutdown": ActionPolicy("admin", confirm=True),
+    "power.restart": ActionPolicy("admin", confirm=True),
+    "power.sleep": ActionPolicy("admin", confirm=True),
+    "power.hibernate": ActionPolicy("admin", confirm=True),
+    "power.lock": ActionPolicy("admin"),
+    "power.cancel": ActionPolicy("admin"),
 }
+POWER_LABELS = {"shutdown": "desligamento", "restart": "reinício", "sleep": "suspensão", "hibernate": "hibernação"}
 
 ROLE_LEVEL = {"viewer": 0, "admin": 1, "owner": 2}
 
@@ -89,10 +98,12 @@ class AgentConn:
     high_since: dict[str, float] = field(default_factory=dict)
     last_alert: dict[str, float] = field(default_factory=dict)
     exit_state: str | None = None  # 'paused' | 'stopping' quando o dono encerra no próprio PC
+    power: dict | None = None  # ação de energia agendada
 
 
 # Motivos de desconexão informados pelo agente antes de fechar
-EXIT_STATES = {"paused": "paused", "stopping": "stopped"}
+EXIT_STATES = {"paused": "paused", "stopping": "stopped", "shutdown": "power_off", "restart": "restarting",
+               "sleep": "sleeping", "hibernate": "hibernating"}
 
 
 @dataclass(eq=False)  # identidade por objeto (usado em set)
@@ -178,6 +189,7 @@ class Hub:
             "info": conn.info if conn else None,
             "connected_at": conn.connected_at if conn else None,
             "metrics": conn.last_metrics if conn else None,
+            "power": conn.power if conn else None,
             "history": list(conn.history) if conn else [],
         }
 
@@ -197,6 +209,9 @@ class Hub:
                 pass
         self.db.update_device_seen(device["id"], info.get("hostname"), info.get("os"))
         self.db.set_device_state(device["id"], "online", str(info.get("agent_version") or "")[:32] or None)
+        mac = info.get("mac") if isinstance(info.get("mac"), str) and len(info.get("mac")) <= 32 else None
+        ip = info.get("ip") if isinstance(info.get("ip"), str) and len(info.get("ip")) <= 64 else None
+        self.db.set_device_network(device["id"], mac, ip)
         self.db.audit(
             "agent.connected", device_id=device["id"],
             detail={"hostname": info.get("hostname"), "agent_version": info.get("agent_version")},
@@ -229,16 +244,48 @@ class Hub:
         elif device:
             await self.broadcast({"type": "device", "data": self.device_view(device)}, conn.device_id)
             if self.prefs["notify_device_offline"]:
-                if state == "paused":
+                if state in ("power_off", "restarting", "sleeping", "hibernating"):
+                    text = {"power_off": "desligado", "restarting": "reiniciando", "sleeping": "suspenso",
+                            "hibernating": "hibernando"}[state]
+                    await self.notify("info", "device_power", f"{device['name']}: {text} (pedido pelo painel)", conn.device_id)
+                elif state == "paused":
                     await self.notify("info", "device_paused", f"{device['name']}: monitoramento pausado no próprio computador", conn.device_id)
                 elif state == "stopped":
                     await self.notify("info", "device_stopped", f"{device['name']}: agente encerrado no próprio computador", conn.device_id)
                 else:
                     await self.notify("warning", "device_offline", f"{device['name']} desconectado", conn.device_id)
 
+    async def power_event(self, conn: AgentConn, msg: dict) -> None:
+        """Agendamentos/cancelamentos vindos do agente (inclusive cancelamento feito no próprio PC)."""
+        device = self.db.get_device_public(conn.device_id)
+        name = device["name"] if device else conn.device_id
+        event, action = msg.get("event"), msg.get("action")
+        label = POWER_LABELS.get(action, "ação de energia")
+        if event == "scheduled" and action in POWER_LABELS:
+            conn.power = {k: msg.get(k) for k in ("action", "at", "delay", "by")}
+            conn.exit_state = action
+            delay = int(msg.get("delay") or 0)
+            when = "agora" if delay < 5 else (f"em {delay} s" if delay < 120 else f"em {round(delay / 60)} min")
+            await self.notify("warning", "power", f"{name}: {label} {when} (pedido por {msg.get('by')})", conn.device_id)
+            self.db.audit("power.scheduled", device_id=conn.device_id, detail=conn.power)
+        elif event in ("canceled", "failed"):
+            conn.power = None
+            conn.exit_state = None
+            if event == "canceled":
+                who = "no próprio computador" if msg.get("by") == "owner" else f"por {msg.get('by')}"
+                await self.notify("info", "power", f"{name}: {label} cancelado(a) {who}", conn.device_id)
+            else:
+                await self.notify("warning", "power", f"{name}: {label} falhou — {msg.get('error')}", conn.device_id)
+            self.db.audit(f"power.{event}", device_id=conn.device_id, detail={"action": action, "by": msg.get("by"), "error": msg.get("error")})
+        else:
+            return
+        await self.broadcast({"type": "device", "data": self.device_view(device)}, conn.device_id)
+
     def agent_status(self, conn: AgentConn, state: str) -> None:
         """O agente avisa que vai fechar por decisão do proprietário (pausa ou encerramento)."""
         if state in EXIT_STATES:
+            if state == "stopping" and conn.exit_state in POWER_LABELS:
+                return  # o Windows encerrou o agente porque o PC está desligando/reiniciando
             conn.exit_state = state
 
     async def agent_metrics(self, conn: AgentConn, metrics: dict) -> None:
@@ -302,6 +349,8 @@ class Hub:
         if not conn:
             return await reject("Dispositivo offline")
         params = {k: v for k, v in params.items() if not str(k).startswith("_")}  # campos internos são do servidor
+        if action.startswith("power."):
+            params["_user"] = client.user["username"]  # quem pediu aparece no aviso do Windows
         if action.startswith("screen."):
             params, local = self.screens.prepare(client, action, device_id, params)
             if local is not None:

@@ -68,6 +68,14 @@ Camadas, todas obrigatórias:
 - **Segurança do Windows preservada:** `Ctrl+Alt+Del`, tela de UAC e a tela de bloqueio não aceitam entrada simulada — por design do Windows.
 - Ao encerrar ou se a conexão cair, teclas e botões pressionados são soltos automaticamente.
 
+## Energia (Fase 6)
+- Desligar, reiniciar, suspender e hibernar: **administrador + confirmação**; no painel, desligar/reiniciar exigem marcar “Entendo que programas abertos serão fechados”.
+- Quem pediu é definido pelo servidor e aparece no aviso do próprio Windows (“EINSTEIN REMOTE: desligamento solicitado por …”).
+- Prazos de até 24 h; enquanto pendente, nenhuma outra ação de energia é aceita; **cancelar** pelo painel, pelo ícone na bandeja ou com `shutdown /a`.
+- O dono pode bloquear todo o controle de energia no PC (bandeja › *Permitir desligar/reiniciar pelo painel*, ou `einstein-agent power-control disable`).
+- Agendamento, cancelamento (inclusive no próprio PC), falha e Wake-on-LAN são auditados e notificados.
+- Wake-on-LAN só faz broadcast para a rede geral e para a sub-rede **privada** onde o PC foi visto; nunca para endereços públicos.
+
 ## Produção — checklist
 - Rodar com HTTPS (`scripts/run-server.sh --tls`) e `EINSTEIN_COOKIE_SECURE=1`.
 - Atrás de proxy reverso (Caddy/Nginx), encaminhar WebSocket e restringir o acesso ao diretório `data/`.

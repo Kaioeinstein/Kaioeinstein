@@ -53,7 +53,8 @@ class TrayApp:
         import pystray
 
         self.pystray = pystray
-        self.runner = AgentRunner(on_status=self._on_status, on_screen=self._on_screen)
+        self.runner = AgentRunner(on_status=self._on_status, on_screen=self._on_screen, on_power=self._on_power)
+        self.power: dict | None = None
         self.status = Status("starting")
         self.screen = {"active": False, "viewers": [], "control": False}
         self._was_online = False
@@ -80,6 +81,37 @@ class TrayApp:
 
     def _icon_state(self) -> str:
         return "sharing" if self.screen["active"] and self.status.state == "online" else self.status.state
+
+    def _on_power(self, st: dict) -> None:
+        from .power import LABELS
+
+        prev, self.power = self.power, st.get("pending")
+        self._refresh_menu()
+        if self.power and not prev:
+            p = self.power
+            when = "agora" if p["delay"] < 5 else (f"em {p['delay']} s" if p["delay"] < 120 else f"em {round(p['delay'] / 60)} min")
+            self.notify(f"{LABELS[p['action']].capitalize()} {when}, pedido por {p['by']} no painel. "
+                        f"Para impedir: ícone › “Cancelar {LABELS[p['action']]}”.")
+        elif prev and not self.power:
+            self.notify(f"{LABELS[prev['action']].capitalize()} cancelado(a).")
+
+    def _power_label(self, item=None) -> str:
+        from .power import LABELS
+
+        return f"Cancelar {LABELS[self.power['action']]} agendado(a)" if self.power else "Cancelar"
+
+    def cancel_power(self, *_):
+        try:
+            self.runner.cancel_power()
+        except Exception:
+            log.exception("Falha ao cancelar ação de energia")
+
+    def toggle_power(self, *_):
+        cfg = self.cfg
+        cfg.allow_power = not cfg.allow_power
+        cfg.save()
+        log.info("Controle de energia pelo painel %s pelo proprietário (bandeja)", "permitido" if cfg.allow_power else "bloqueado")
+        self._refresh_menu()
 
     def _on_screen(self, st: dict) -> None:
         was = self.screen["active"]
@@ -147,6 +179,7 @@ class TrayApp:
               visible=lambda item: not self.cfg.paired or self.status.state == "rejected"),
             M("Iniciar com o Windows", self.toggle_autostart, checked=lambda item: autostart.is_enabled(),
               visible=sys.platform == "win32"),
+            M(self._power_label, self.cancel_power, visible=lambda item: bool(self.power)),
             M("Encerrar compartilhamento de tela", self.stop_screen, visible=lambda item: self.screen["active"]),
             M("Permitir encerrar processos pelo painel", self.toggle_process_kill,
               checked=lambda item: self.cfg.allow_process_kill, visible=paired),
@@ -160,6 +193,8 @@ class TrayApp:
             ), visible=paired),
             M("Permitir controle de mouse e teclado", self.toggle_remote_input,
               checked=lambda item: self.cfg.allow_remote_input, visible=paired),
+            M("Permitir desligar/reiniciar pelo painel", self.toggle_power,
+              checked=lambda item: self.cfg.allow_power, visible=paired),
             SEP,
             M("Ver registro (log)", self.open_log),
             M("Abrir pasta de configuração", self.open_config),

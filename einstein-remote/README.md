@@ -31,4 +31,4 @@ cd agent && pip install . && einstein-agent pair --server http://127.0.0.1:8000 
 - [Modelo de segurança](docs/SECURITY.md)
 - [Manual de utilização](docs/MANUAL.md)
 
-**Status:** Fase 5 concluída — tela remota com controle de mouse e teclado (desktop e celular), faixa de aviso e consentimento no PC; SYSTEM MONITOR; agente na bandeja; executável Windows testado no CI.
+**Status:** Fase 6 concluída — central de energia (desligar, reiniciar, suspender, hibernar, bloquear, cancelar, Wake-on-LAN); tela remota com controle; SYSTEM MONITOR; agente na bandeja; executável Windows testado no CI.

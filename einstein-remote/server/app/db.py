@@ -62,7 +62,9 @@ CREATE TABLE IF NOT EXISTS devices (
     last_seen REAL,
     revoked INTEGER NOT NULL DEFAULT 0,
     last_state TEXT,
-    agent_version TEXT
+    agent_version TEXT,
+    mac TEXT,
+    last_ip TEXT
 );
 
 CREATE TABLE IF NOT EXISTS pairing_codes (
@@ -125,7 +127,7 @@ class Database:
         "last_login": "REAL",
     }
 
-    _DEVICE_COLUMNS = {"last_state": "TEXT", "agent_version": "TEXT"}
+    _DEVICE_COLUMNS = {"last_state": "TEXT", "agent_version": "TEXT", "mac": "TEXT", "last_ip": "TEXT"}
 
     def _migrate(self) -> None:
         for table, columns in (("users", self._USER_COLUMNS), ("devices", self._DEVICE_COLUMNS)):
@@ -294,13 +296,13 @@ class Database:
 
     def get_device_public(self, device_id: str) -> dict | None:
         return self.one(
-            "SELECT id, name, hostname, os, created_at, last_seen, revoked, last_state, agent_version FROM devices WHERE id = ?",
+            "SELECT id, name, hostname, os, created_at, last_seen, revoked, last_state, agent_version, mac FROM devices WHERE id = ?",
             (device_id,),
         )
 
     def list_devices(self) -> list[dict]:
         return self.all(
-            "SELECT id, name, hostname, os, created_at, last_seen, revoked, last_state, agent_version FROM devices"
+            "SELECT id, name, hostname, os, created_at, last_seen, revoked, last_state, agent_version, mac FROM devices"
             " WHERE revoked = 0 ORDER BY created_at"
         )
 
@@ -315,6 +317,9 @@ class Database:
             "UPDATE devices SET last_state = ?, agent_version = COALESCE(?, agent_version) WHERE id = ?",
             (state, agent_version, device_id),
         )
+
+    def set_device_network(self, device_id: str, mac: str | None, ip: str | None) -> None:
+        self.execute("UPDATE devices SET mac = COALESCE(?, mac), last_ip = COALESCE(?, last_ip) WHERE id = ?", (mac, ip, device_id))
 
     def rename_device(self, device_id: str, name: str) -> None:
         self.execute("UPDATE devices SET name = ? WHERE id = ?", (name, device_id))

@@ -108,6 +108,7 @@ def cmd_status(args) -> int:
     print(f"Encerrar processos pelo painel: {'permitido' if cfg.allow_process_kill else 'bloqueado'}")
     print(f"Acesso à tela: {({'allow': 'permitido sem perguntar', 'ask': 'perguntar a cada sessão', 'deny': 'bloqueado'}).get(cfg.screen_access, cfg.screen_access)}")
     print(f"Controle de mouse e teclado: {'permitido' if cfg.allow_remote_input else 'bloqueado'}")
+    print(f"Controle de energia pelo painel: {'permitido' if cfg.allow_power else 'bloqueado'}")
     return 0
 
 
@@ -177,6 +178,16 @@ def cmd_remote_input(args) -> int:
     cfg.allow_remote_input = args.mode == "enable"
     cfg.save()
     print("Controle remoto de mouse e teclado " + ("PERMITIDO" if cfg.allow_remote_input else "BLOQUEADO") + " neste computador.")
+    return 0
+
+
+def cmd_power_control(args) -> int:
+    cfg = AgentConfig.load()
+    cfg.allow_power = args.mode == "enable"
+    cfg.save()
+    print("Controle de energia pelo painel (desligar, reiniciar, suspender, hibernar, bloquear) "
+          + ("PERMITIDO" if cfg.allow_power else "BLOQUEADO") + " neste computador.")
+    print("Para cancelar um desligamento/reinício já agendado: ícone na bandeja ou 'shutdown /a'.")
     return 0
 
 
@@ -265,6 +276,10 @@ def main(argv: list[str] | None = None) -> int:
     si = sub.add_parser("remote-input", help="permite/bloqueia controle de mouse e teclado")
     si.add_argument("mode", choices=["enable", "disable"])
     si.set_defaults(fn=cmd_remote_input)
+
+    sp2 = sub.add_parser("power-control", help="permite/bloqueia desligar, reiniciar, suspender pelo painel")
+    sp2.add_argument("mode", choices=["enable", "disable"])
+    sp2.set_defaults(fn=cmd_power_control)
 
     su = sub.add_parser("uninstall", help="remove vínculo e configuração")
     su.add_argument("--yes", action="store_true")

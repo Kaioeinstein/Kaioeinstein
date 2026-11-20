@@ -97,6 +97,29 @@ async def revoke_device(device_id: str, request: Request, user: dict = Depends(r
     return {"ok": True}
 
 
+@router.post("/devices/{device_id}/wake")
+async def wake_device(device_id: str, request: Request, user: dict = Depends(require_role("admin"))):
+    """Liga o computador por Wake-on-LAN (servidor precisa estar na mesma rede local)."""
+    from . import wol
+
+    st = request.app.state
+    _require_access(request, user, device_id)
+    dev = st.db.one("SELECT name, mac, last_ip FROM devices WHERE id = ?", (device_id,))
+    if not dev["mac"]:
+        raise HTTPException(409, "O endereço MAC deste computador ainda não é conhecido (o agente precisa ter conectado ao menos uma vez nesta versão).")
+    if device_id in st.hub.agents:
+        raise HTTPException(409, "O computador já está ligado e conectado.")
+    try:
+        sent = wol.send(dev["mac"], dev["last_ip"])
+    except ValueError as exc:
+        raise HTTPException(422, str(exc))
+    st.db.audit("power.wake", user=user, device_id=device_id, detail={"mac": dev["mac"], "targets": sent}, ip=client_ip(request))
+    if not sent:
+        raise HTTPException(502, "A rede do servidor não permitiu enviar o pacote de Wake-on-LAN.")
+    await st.hub.notify("info", "power", f"{dev['name']}: pedido para ligar (Wake-on-LAN) enviado por {user['username']}", device_id)
+    return {"sent": sent, "mac": dev["mac"]}
+
+
 @router.get("/devices/{device_id}/history")
 def device_history(device_id: str, request: Request, hours: float = 24, user: dict = Depends(current_user)):
     _require_access(request, user, device_id)

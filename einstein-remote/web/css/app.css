@@ -516,3 +516,40 @@ body.rv-open { overflow: hidden; }
   .rv-tools .select { flex: 1 1 150px; min-width: 130px; }
   body.rv-open .toasts { bottom: 16px; }
 }
+
+/* ---------- Fase 6: central de energia ---------- */
+.pill.idle { color: #b9b9cc; background: rgba(255, 255, 255, .07); }
+.power-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.pw-btn { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left;
+  padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: rgba(0, 0, 0, .25); cursor: pointer; transition: border-color .2s, background .2s, transform .15s; }
+.pw-btn:hover:not(:disabled) { border-color: rgba(255, 77, 109, .45); background: rgba(255, 77, 109, .07); }
+.pw-btn[data-power=sleep]:hover:not(:disabled), .pw-btn[data-power=hibernate]:hover:not(:disabled), .pw-btn[data-power=lock]:hover:not(:disabled) { border-color: rgba(168, 85, 247, .5); background: rgba(168, 85, 247, .08); }
+.pw-btn[data-power=wake]:hover:not(:disabled) { border-color: rgba(34, 227, 160, .5); background: rgba(34, 227, 160, .08); }
+.pw-btn:active:not(:disabled) { transform: scale(.98); }
+.pw-btn:disabled { opacity: .4; cursor: not-allowed; }
+.pw-btn b { font-size: 14px; }
+.pw-btn small { color: var(--muted); font-size: 11.5px; }
+.pw-ic { grid-row: span 2; width: 34px; height: 34px; border-radius: 10px; position: relative; display: block; }
+.pw-ic::before { content: ""; position: absolute; inset: 9px; border-radius: 50%; border: 2.5px solid currentColor; }
+.pw-off { color: #ff8fa3; background: rgba(255, 77, 109, .15); }
+.pw-off::after { content: ""; position: absolute; left: 15.5px; top: 6px; width: 3px; height: 11px; border-radius: 2px; background: currentColor; box-shadow: 0 0 0 2px rgba(40, 14, 22, 1); }
+.pw-restart { color: var(--amber); background: rgba(245, 181, 68, .14); }
+.pw-restart::before { border-top-color: transparent; }
+.pw-sleep { color: #c99bff; background: rgba(168, 85, 247, .15); }
+.pw-sleep::before { border: 0; inset: 8px 10px 8px 8px; box-shadow: inset -5px -3px 0 0 currentColor; }
+.pw-hib { color: #8fb3ff; background: rgba(90, 140, 255, .15); }
+.pw-hib::before { border-radius: 3px; inset: 10px 9px; }
+.pw-lock { color: var(--text); background: rgba(255, 255, 255, .08); }
+.pw-lock::before { border-radius: 3px; inset: 15px 10px 8px; background: currentColor; border: 0; }
+.pw-lock::after { content: ""; position: absolute; left: 12px; top: 8px; width: 10px; height: 10px; border: 2.5px solid currentColor; border-bottom: 0; border-radius: 6px 6px 0 0; }
+.pw-wake { color: var(--green); background: rgba(34, 227, 160, .14); }
+.pw-pending { display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 14px; border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255, 77, 109, .16), rgba(255, 77, 109, .04)); border: 1px solid rgba(255, 77, 109, .4); }
+.pw-pending > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.pw-pending b { font-size: 16px; font-variant-numeric: tabular-nums; }
+.pw-ring { width: 14px; height: 14px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 0 rgba(255, 77, 109, .6); animation: ring 1.4s infinite; flex: none; }
+@keyframes ring { 70% { box-shadow: 0 0 0 12px rgba(255, 77, 109, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 77, 109, 0); } }
+@media (max-width: 900px) {
+  .power-grid { grid-template-columns: 1fr 1fr; }
+  .pw-pending { flex-wrap: wrap; }
+}

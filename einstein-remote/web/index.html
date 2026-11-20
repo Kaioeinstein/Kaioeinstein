@@ -144,6 +144,23 @@
             </div>
           </div>
 
+          <article class="glass power-card admin-only hidden" id="power-card">
+            <div class="card-head"><h3>Central de energia</h3><span class="muted small" id="pw-note"></span></div>
+            <div id="pw-pending" class="pw-pending hidden" role="status">
+              <span class="pw-ring" aria-hidden="true"></span>
+              <div><b id="pw-pending-text"></b><small id="pw-pending-sub" class="muted"></small></div>
+              <button class="btn danger sm" id="pw-cancel">Cancelar</button>
+            </div>
+            <div class="power-grid" id="power-grid">
+              <button class="pw-btn" data-power="shutdown"><i class="pw-ic pw-off"></i><b>Desligar</b><small>com prazo e aviso</small></button>
+              <button class="pw-btn" data-power="restart"><i class="pw-ic pw-restart"></i><b>Reiniciar</b><small>com prazo e aviso</small></button>
+              <button class="pw-btn" data-power="sleep"><i class="pw-ic pw-sleep"></i><b>Suspender</b><small>economia de energia</small></button>
+              <button class="pw-btn" data-power="hibernate"><i class="pw-ic pw-hib"></i><b>Hibernar</b><small>salva e desliga</small></button>
+              <button class="pw-btn" data-power="lock"><i class="pw-ic pw-lock"></i><b>Bloquear</b><small>tela de bloqueio</small></button>
+              <button class="pw-btn hidden" data-power="wake"><i class="pw-ic pw-wake"></i><b>Ligar</b><small>Wake-on-LAN</small></button>
+            </div>
+          </article>
+
           <div class="grid two">
             <article class="glass chart-card">
               <div class="card-head"><h3>Desempenho em tempo real</h3><div class="legend"><span class="lg purple">CPU</span><span class="lg green">RAM</span></div></div>
@@ -316,6 +333,20 @@
       <div class="row end">
         <button class="btn ghost" value="cancel">Cancelar</button>
         <button class="btn danger" value="ok" id="confirm-ok">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- CONFIRMAÇÃO DE ENERGIA -->
+  <dialog id="power-dialog" class="glass dialog">
+    <form id="power-form" class="form-grid">
+      <h3 id="power-title">Desligar?</h3>
+      <p id="power-warn" class="muted"></p>
+      <label>Quando<select id="power-delay" class="select"></select></label>
+      <label class="radio" id="power-ack-wrap"><input type="checkbox" id="power-ack"> Entendo que programas abertos serão fechados</label>
+      <div class="row end">
+        <button class="btn ghost" type="button" id="power-cancel-btn">Voltar</button>
+        <button class="btn danger" type="submit" id="power-ok">Confirmar</button>
       </div>
     </form>
   </dialog>

@@ -39,6 +39,7 @@ inferior, gauges 2×2), instalável pela opção "Adicionar à tela inicial" —
 | `devices.py` | Pareamento, dispositivos, histórico, notificações (lidas por usuário), auditoria |
 | `users.py` | Usuários, papéis, acesso por dispositivo, configurações de alertas |
 | `preferences.py` | Limites e tipos de notificação persistidos no banco |
+| `wol.py` | Wake-on-LAN: pacote mágico por broadcast (geral e da sub-rede privada do PC) |
 | `screens.py` | Sessões de tela: quadros só para quem abriu a sessão, entrada só de quem tem controle (com limite de taxa), auditoria de início/fim |
 | `hub.py` | Conexões em tempo real filtradas por permissão, allowlist de ações, alertas configuráveis, comandos pendentes |
 | `ws.py` | Endpoints `/ws/agent` e `/ws/client` |
@@ -58,6 +59,7 @@ inferior, gauges 2×2), instalável pela opção "Adicionar à tela inicial" —
 | `sysmon.py` | SYSTEM MONITOR: processos (CPU por processo), janelas abertas (EnumWindows), serviços, hardware (registro/DMI), rede; encerramento seguro de processos |
 | `screen.py` | Tela remota: captura (mss, thread dedicada), JPEG com cursor desenhado, quadros repetidos não reenviados, controle de fluxo por créditos, DPI-aware |
 | `inputs.py` | Mouse e teclado: `SendInput` (Windows, Unicode para acentos) e XTEST (Linux); validação de eventos; solta teclas presas ao encerrar |
+| `power.py` | Energia: `shutdown /s|/r /t N` (agendamento nativo, cancelável com `/a`), `SetSuspendState` com privilégio, `LockWorkStation`, capacidades reais (`GetPwrCapabilities`), modo de simulação para testes |
 | `overlay.py` | Faixa "tela compartilhada" sempre visível com botão Encerrar e janela de pedido de permissão (thread Tk dedicada) |
 | `icons.py` | Ícones gerados em código (bandeja e `.ico` do executável) |
 | `dialogs.py` | Caixas de mensagem nativas do Windows |
@@ -129,8 +131,8 @@ agente ◀──{"type":"input","events":[...]}───────── servi
 | 3 | Agente Windows: bandeja, janela de vinculação, log local, instância única, estados pausado/encerrado no painel, `.exe` + CI Windows | ✅ concluída |
 | 4 | SYSTEM MONITOR: processos, aplicativos abertos, serviços, hardware, rede; encerrar processo com confirmação e travas | ✅ concluída |
 | 5 | Tela em tempo real, mouse e teclado (desktop e toque), tela cheia, qualidade/resolução, multi-monitor, faixa de aviso e consentimento no PC | ✅ concluída |
-| 6 | Energia: desligar, reiniciar, suspender, hibernar, cancelar (`shutdown /a`) com confirmação | próxima |
-| 7 | Arquivos: navegação restrita a pastas autorizadas, upload/download em blocos com verificação SHA‑256 | |
+| 6 | Energia: desligar, reiniciar, suspender, hibernar, bloquear, cancelar e ligar (Wake-on-LAN), com prazos e confirmação | ✅ concluída |
+| 7 | Arquivos: navegação restrita a pastas autorizadas, upload/download em blocos com verificação SHA‑256 | próxima |
 | 8 | Segurança avançada: 2FA TOTP, gestão de usuários, políticas por dispositivo, alertas por e‑mail/push | |
 | 9 | Testes de carga, testes no Windows real, correções | |
 | 10 | Instalador (.exe com Inno Setup + PyInstaller), servidor como serviço, versão 1.0 | |

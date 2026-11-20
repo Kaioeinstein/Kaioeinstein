@@ -83,7 +83,8 @@ class AgentConfig:
     allowed_roots: list[str] = field(default_factory=list)  # pastas liberadas (fase 7)
     allow_process_kill: bool = True  # o dono pode proibir, no próprio PC, o encerramento remoto de processos
     screen_access: str = "allow"  # acesso à tela: "allow" (sem perguntar) | "ask" (perguntar a cada sessão) | "deny"
-    allow_remote_input: bool = True  # permite controlar mouse e teclado durante o compartilhamento
+    allow_remote_input: bool = True
+    allow_power: bool = True  # permite desligar/reiniciar/suspender/hibernar/bloquear pelo painel  # permite controlar mouse e teclado durante o compartilhamento
 
     @property
     def paired(self) -> bool:

@@ -30,6 +30,7 @@ from websockets.exceptions import ConnectionClosed, InvalidStatus
 from . import commands
 from .config import AgentConfig, config_path
 from .metrics import MetricsCollector, system_info
+from .power import PowerController, PowerError
 from .screen import ScreenController, ScreenRefused
 
 log = logging.getLogger("einstein.agent")
@@ -66,9 +67,11 @@ def ssl_context(cfg: AgentConfig) -> ssl.SSLContext | None:
 
 class Agent:
     def __init__(self, cfg: AgentConfig, on_status: Callable[[Status], None] | None = None,
-                 on_screen: Callable[[dict], None] | None = None):
+                 on_screen: Callable[[dict], None] | None = None,
+                 on_power: Callable[[dict], None] | None = None):
         self.cfg = cfg
         self.on_screen = on_screen
+        self.power = PowerController(on_change=on_power)  # sobrevive a reconexões (prazos de suspensão)
         self.screen: ScreenController | None = None
         self.collector = MetricsCollector()
         self.on_status = on_status
@@ -170,6 +173,9 @@ class Agent:
             self.screen = ScreenController(
                 send_bytes=ws.send, send_json=lambda m: ws.send(json.dumps(m)), on_change=self.on_screen
             )
+            self.power.send_json = lambda m: ws.send(json.dumps(m))
+            if self.power.pending:  # reconectou durante um prazo: servidor volta a saber
+                await self.power._emit({"event": "scheduled", **self.power.pending})
             self._inputs: asyncio.Queue = asyncio.Queue(maxsize=256)
             sender = asyncio.create_task(self._send_metrics(ws))
             receiver = asyncio.create_task(self._receive(ws))
@@ -251,6 +257,21 @@ class Agent:
             return False, None, f"{type(exc).__name__}: {exc}"
         return False, None, f"Ação '{action}' não suportada por este agente"
 
+    async def _power_command(self, action: str, params: dict):
+        from . import power
+
+        try:
+            if action == "power.status":
+                return True, {**power.capabilities(), **self.power.state()}, None
+            if action == "power.cancel":
+                return True, await self.power.cancel(str(params.get("_user") or "painel")), None
+            return True, await self.power.request(action.split(".", 1)[1], params), None
+        except PowerError as exc:
+            return False, None, str(exc)
+        except Exception as exc:
+            log.exception("Falha no comando de energia %s", action)
+            return False, None, f"{type(exc).__name__}: {exc}"
+
     async def _handle_command(self, ws, msg: dict) -> None:
         action = str(msg.get("action"))
         params = msg.get("params") or {}
@@ -258,6 +279,8 @@ class Agent:
             log.info("Comando recebido: %s", action)
         if action.startswith("screen."):
             ok, data, error = await self._screen_command(action, params)
+        elif action.startswith("power."):
+            ok, data, error = await self._power_command(action, params)
         else:
             ok, data, error = await commands.execute(action, params)
         try:

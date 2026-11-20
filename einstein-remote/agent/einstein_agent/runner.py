@@ -14,9 +14,11 @@ log = logging.getLogger("einstein.runner")
 
 class AgentRunner:
     def __init__(self, on_status: Callable[[Status], None] | None = None,
-                 on_screen: Callable[[dict], None] | None = None):
+                 on_screen: Callable[[dict], None] | None = None,
+                 on_power: Callable[[dict], None] | None = None):
         self.on_status = on_status
         self.on_screen = on_screen
+        self.on_power = on_power
         self.agent: Agent | None = None
         self._thread: threading.Thread | None = None
         self.status = Status("unpaired")
@@ -37,7 +39,7 @@ class AgentRunner:
         if not cfg.paired:
             self._emit(Status("unpaired"))
             return False
-        self.agent = Agent(cfg, on_status=self._emit, on_screen=self.on_screen)
+        self.agent = Agent(cfg, on_status=self._emit, on_screen=self.on_screen, on_power=self.on_power)
         self._thread = threading.Thread(target=self._run, name="einstein-agent", daemon=True)
         self._thread.start()
         return True
@@ -72,6 +74,16 @@ class AgentRunner:
         if not (a and a._loop and a.screen and a.screen.active):
             return False
         asyncio.run_coroutine_threadsafe(a.screen.stop("owner"), a._loop).result(10)
+        return True
+
+    def cancel_power(self) -> bool:
+        """Cancela, pelo próprio PC, o desligamento/reinício/suspensão agendado pelo painel."""
+        import asyncio
+
+        a = self.agent
+        if not (a and a._loop and a.power.pending):
+            return False
+        asyncio.run_coroutine_threadsafe(a.power.cancel("owner"), a._loop).result(20)
         return True
 
     @staticmethod
