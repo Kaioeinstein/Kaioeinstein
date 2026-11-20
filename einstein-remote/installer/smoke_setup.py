@@ -99,7 +99,7 @@ def main() -> int:
         run_value = reg(RUN_KEY, RUN_VALUE)
         if run_value != f'"{tray}"':
             log = (tmp / "install.log").read_text("utf-8", errors="replace")
-            print("\n".join(l for l in log.splitlines() if "Reg" in l or "Task" in l or "Run" in l)[-4000:])
+            print("\n".join(l for l in log.splitlines() if "nício automático" in l or "Tasks" in l or "ERRO" in l)[-4000:])
         check(run_value == f'"{tray}"', f"início automático aponta para o agente da bandeja ({run_value!r})")
         check(reg(UNINSTALL_KEY, "DisplayVersion") == version, f"aparece em Aplicativos (versão {version})")
         out = subprocess.run([str(cli), "--version"], capture_output=True, text=True, encoding="utf-8").stdout

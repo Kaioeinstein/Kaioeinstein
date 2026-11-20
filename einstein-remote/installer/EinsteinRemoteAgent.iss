@@ -71,13 +71,6 @@ Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#TrayExe}"; Comment: "Agent
 Name: "{autoprograms}\EINSTEIN REMOTE\Desinstalar {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#TrayExe}"; Tasks: desktopicon
 
-[Registry]
-; mesma entrada que o menu "Iniciar com o Windows" cria — visível em Gerenciador de Tarefas > Inicializar
-Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "{#RunValue}"; ValueData: """{app}\{#TrayExe}"""; Tasks: autostart
-; na tela, a opção mostra o estado atual; desmarcada ali, o início automático é desligado.
-; Silencioso, só liga com /TASKS="autostart" e nunca desliga o que o dono ativou pela bandeja.
-Root: HKCU; Subkey: "{#RunKey}"; ValueType: none; ValueName: "{#RunValue}"; Flags: deletevalue; Check: AutostartUnchecked
-
 [Run]
 Filename: "{app}\{#TrayExe}"; Description: "{cm:RunAgent}"; Flags: postinstall nowait skipifsilent
 
@@ -109,9 +102,35 @@ begin
   end;
 end;
 
-function AutostartUnchecked(): Boolean;
+{ Início automático: mesma entrada que o menu "Iniciar com o Windows" da bandeja cria
+  (visível em Gerenciador de Tarefas > Inicializar).
+  Marcado: grava. Desmarcado na tela: remove. Silencioso sem /TASKS="autostart": não mexe
+  (nunca desliga o que o dono ativou pela bandeja). }
+procedure ApplyAutostart();
+var
+  Cmd: String;
 begin
-  Result := (not WizardSilent()) and (not WizardIsTaskSelected('autostart'));
+  Cmd := '"' + ExpandConstant('{app}\{#TrayExe}') + '"';
+  if WizardIsTaskSelected('autostart') then
+  begin
+    if RegWriteStringValue(HKEY_CURRENT_USER, '{#RunKey}', '{#RunValue}', Cmd) then
+      Log('Início automático ativado: ' + Cmd)
+    else
+      Log('ERRO: não foi possível gravar o início automático');
+  end
+  else if not WizardSilent() then
+  begin
+    RegDeleteValue(HKEY_CURRENT_USER, '{#RunKey}', '{#RunValue}');
+    Log('Início automático desativado (opção desmarcada)');
+  end
+  else
+    Log('Início automático não alterado (instalação silenciosa sem a opção)');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    ApplyAutostart();
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
