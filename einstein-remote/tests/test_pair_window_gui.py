@@ -104,3 +104,29 @@ def test_pair_window_cancel(monkeypatch):
     drive_window(monkeypatch, steps)
     assert run_pair_window() is False
     assert not AgentConfig.load().paired
+
+
+def test_window_objects_freed_in_creating_thread(monkeypatch):
+    """Regressão: objetos Tk coletados em outra thread abortam o processo (Tcl_AsyncDelete).
+
+    Abre a janela numa thread secundária (como a bandeja faz) e depois força a coleta de
+    lixo na thread principal: com o vazamento, o processo aborta aqui.
+    """
+    import gc
+    import weakref
+
+    from einstein_agent.pair_window import run_pair_window
+
+    refs = []
+
+    def steps(root):
+        refs.append(weakref.ref(root))
+        next(w for w in walk(root) if isinstance(w, tk.Button) and w["text"] == "Cancelar").invoke()
+
+    drive_window(monkeypatch, steps)
+    t = threading.Thread(target=run_pair_window)
+    t.start()
+    t.join(20)
+    assert not t.is_alive()
+    gc.collect()
+    assert refs and refs[0]() is None, "janela Tk ainda viva após fechar"

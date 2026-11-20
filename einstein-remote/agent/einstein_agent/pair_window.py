@@ -1,6 +1,7 @@
 """Janela gráfica de vinculação (para quem instala o .exe e não usa o terminal)."""
 from __future__ import annotations
 
+import gc
 import queue
 import threading
 
@@ -18,7 +19,23 @@ FONT = ("Segoe UI", 10)
 
 
 def run_pair_window(on_done=None) -> bool:
-    """Mostra a janela e bloqueia até fechar. Retorna True se o computador foi vinculado."""
+    """Mostra a janela e bloqueia até fechar. Retorna True se o computador foi vinculado.
+
+    Todos os objetos Tk vivem dentro de ``_window`` e são coletados AQUI, na mesma
+    thread que os criou: se o coletor de lixo os finalizar em outra thread, o Tcl
+    aborta o processo inteiro (Tcl_AsyncDelete). A bandeja abre esta janela numa
+    thread própria, então isso é essencial.
+    """
+    try:
+        ok = _window()
+    finally:
+        gc.collect()
+    if on_done:
+        on_done(ok)
+    return ok
+
+
+def _window() -> bool:
     import tkinter as tk
     from tkinter import filedialog
 
@@ -140,6 +157,4 @@ def run_pair_window(on_done=None) -> bool:
     root.attributes("-topmost", True)
     root.after(500, lambda: root.attributes("-topmost", False))
     root.mainloop()
-    if on_done:
-        on_done(result["ok"])
     return result["ok"]

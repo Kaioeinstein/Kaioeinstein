@@ -23,12 +23,16 @@ def _tk(kind: str, title: str, text: str):
     import tkinter as tk
     from tkinter import messagebox
 
+    import gc
+
     root = tk.Tk()
     root.withdraw()
     try:
         return getattr(messagebox, kind)(title, text, parent=root)
     finally:
         root.destroy()
+        del root
+        gc.collect()  # finaliza objetos Tk nesta thread (ver pair_window.run_pair_window)
 
 
 def confirm(title: str, text: str) -> bool:
