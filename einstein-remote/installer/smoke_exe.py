@@ -55,6 +55,8 @@ def wait_state(base, token, state, timeout=30):
 
 
 def main() -> int:
+    for stream in (sys.stdout, sys.stderr):  # console do CI Windows usa cp1252
+        stream.reconfigure(errors="replace")
     dist = Path(sys.argv[1] if len(sys.argv) > 1 else ROOT / "dist" / "EinsteinRemoteAgent").resolve()
     cli = dist / f"einstein-agent{EXE}"
     tray = dist / f"EinsteinRemoteAgent{EXE}"
