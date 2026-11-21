@@ -18,6 +18,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões
   (o servidor ficava fora do ar).
 
 ### Corrigido
+- **Painel preso em "Suspensão em andamento…"** e Cancelar sem efeito: o agente agora avisa quando a
+  suspensão termina (ou não acontece) e, sem nada pendente, o Cancelar faz o servidor descartar o aviso —
+  inclusive com agentes antigos.
+- PCs com **Modern Standby** (sem suspensão clássica S3): Suspender desliga a tela, que é como o Windows
+  entra nesse modo (o pedido clássico era ignorado).
 - Barra de navegação do celular com 7 botões cabe numa linha.
 
 ## [1.0.1] — 2026-11-21

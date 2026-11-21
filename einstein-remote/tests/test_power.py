@@ -225,3 +225,50 @@ def test_windows_shutdown_privilege_real():
     from einstein_agent.power import _enable_shutdown_privilege
 
     _enable_shutdown_privilege()  # não pode lançar PowerError
+
+
+def test_suspend_reports_done_and_cancel_clears_stale_state(dry_run):
+    """Regressão (painel preso em 'Suspensão em andamento…'): o agente avisa ao terminar a suspensão
+    e, sem nada pendente, o Cancelar manda o servidor descartar o aviso."""
+    from einstein_agent.power import PowerController
+
+    sent = []
+
+    async def scenario():
+        pc = PowerController()
+
+        async def send(m):
+            sent.append(m)
+
+        pc.send_json = send
+        await pc.request("sleep", {"delay": 0, "_user": "kaio"})
+        await asyncio.sleep(3.8)
+        assert pc.pending is None
+        await pc.cancel("kaio")  # nada pendente no agente
+
+    asyncio.run(scenario())
+    events = [m["event"] for m in sent if m.get("type") == "power_event"]
+    assert events == ["scheduled", "executing", "done", "cleared"]
+
+
+def test_server_clears_stuck_power_state(client, owner):
+    """Servidor: 'done' / 'cleared' e o Cancelar com agente antigo (sem esses eventos) limpam o aviso."""
+    from app.hub import AgentConn
+
+    headers, _ = owner
+    hub = client.app.state.hub
+    device_id = pair_device(client, headers)[0]["device_id"]
+    conn = AgentConn(device_id=device_id, ws=None, info={}, name="PC")
+
+    async def scenario():
+        await hub.power_event(conn, {"event": "scheduled", "action": "sleep", "at": time.time(), "delay": 0, "by": "kaio"})
+        assert conn.power
+        await hub.power_event(conn, {"event": "done", "action": "sleep"})
+        assert conn.power is None
+        await hub.power_event(conn, {"event": "scheduled", "action": "sleep", "at": time.time(), "delay": 0, "by": "kaio"})
+        await hub.power_event(conn, {"event": "cleared", "by": "kaio"})
+        assert conn.power is None
+
+    asyncio.run(scenario())
+    notes = [n["message"] for n in client.get("/api/notifications", headers=headers).json() if n["kind"] == "power"]
+    assert any("concluída" in n for n in notes)

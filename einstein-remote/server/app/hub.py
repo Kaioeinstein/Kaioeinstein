@@ -418,6 +418,14 @@ class Hub:
             else:
                 await self.notify("warning", "power", f"{name}: {label} falhou — {msg.get('error')}", conn.device_id)
             self.db.audit(f"power.{event}", device_id=conn.device_id, detail={"action": action, "by": msg.get("by"), "error": msg.get("error")})
+        elif event in ("done", "cleared"):
+            # suspensão concluída (o PC acordou ou não chegou a dormir) ou aviso antigo descartado
+            if conn.power is None:
+                return
+            conn.power = None
+            conn.exit_state = None
+            if event == "done":
+                await self.notify("info", "power", f"{name}: {label} concluída — o computador está ativo", conn.device_id)
         else:
             return
         await self.broadcast({"type": "device", "data": self.device_view(device)}, conn.device_id)
@@ -525,6 +533,13 @@ class Hub:
         self.send_client(pending.client, {"type": "result", "id": cmd_id, "ok": ok, "data": msg.get("data"), "error": msg.get("error")})
         if ok and pending.action == "screen.start":
             self.screens.started(pending.client, conn.device_id, pending.params, msg.get("data") or {})
+        if ok and pending.action == "power.cancel" and conn.power and not (msg.get("data") or {}).get("canceled"):
+            # o agente não tem nada pendente: aviso preso no painel (ex.: suspensão que não aconteceu) é descartado
+            conn.power = None
+            conn.exit_state = None
+            device = self.db.get_device_public(conn.device_id)
+            if device:
+                await self.broadcast({"type": "device", "data": self.device_view(device)}, conn.device_id)
         if pending.audit and pending.action != "screen.start" and self.prefs["notify_commands"]:
             who = pending.client.user["username"]
             if pending.action == "process.kill":

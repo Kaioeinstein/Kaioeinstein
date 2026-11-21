@@ -60,7 +60,7 @@ def _windows_caps() -> dict:
     if not ok:
         return {"sleep": True, "hibernate": False}
     s3, s4, hiberfile, aoac = buf[5], buf[6], buf[8], buf[21]
-    return {"sleep": bool(s3 or aoac), "hibernate": bool(s4 and hiberfile), "modern_standby": bool(aoac)}
+    return {"sleep": bool(s3 or aoac), "hibernate": bool(s4 and hiberfile), "modern_standby": bool(aoac), "s3": bool(s3)}
 
 
 def capabilities() -> dict:
@@ -158,9 +158,33 @@ def cancel_native() -> bool:
     return r is None or r.returncode == 0
 
 
+def _modern_standby_only() -> bool:
+    """PC com Modern Standby (S0) e sem a suspensão clássica (S3): o SetSuspendState não faz nada."""
+    try:
+        caps = _windows_caps()
+        return bool(caps.get("modern_standby")) and not caps.get("s3")
+    except Exception:
+        return False
+
+
+def _screen_off_standby() -> None:
+    """Modern Standby entra quando a tela é desligada (como ao apertar o botão de energia)."""
+    import ctypes
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    user32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
+    HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER = 0xFFFF, 0x0112, 0xF170
+    if not user32.PostMessageW(HWND_BROADCAST, WM_SYSCOMMAND, SC_MONITORPOWER, 2):
+        raise PowerError(f"O Windows recusou desligar a tela (erro {ctypes.get_last_error()}).")
+
+
 def suspend(hibernate: bool) -> None:
     if dry_run():
         _run(["SetSuspendState", "hibernate" if hibernate else "sleep"])
+        return
+    if WINDOWS and not hibernate and _modern_standby_only():
+        log.info("PC com Modern Standby: suspendendo pelo desligamento da tela")
+        _screen_off_standby()
         return
     if WINDOWS:
         import ctypes
@@ -284,9 +308,14 @@ class PowerController:
         await asyncio.sleep(0.5)  # deixa a mensagem sair antes de a rede adormecer
         try:
             await asyncio.to_thread(suspend, action == "hibernate")
-        except PowerError as exc:
+        except Exception as exc:  # qualquer falha libera o painel (antes só PowerError)
             log.error("Falha ao %s: %s", LABELS[action], exc)
+            self.pending = None
             await self._emit({"event": "failed", "action": action, "error": str(exc)})
+        else:
+            # o Windows devolve o controle ao acordar (ou na hora, se não suspendeu): o painel não fica preso
+            self.pending = None
+            await self._emit({"event": "done", "action": action})
         finally:
             self.pending = None
             self._task = None
@@ -309,5 +338,8 @@ class PowerController:
         if pending:
             log.warning("%s cancelado(a) por %s", LABELS[pending["action"]].capitalize(), by)
             await self._emit({"event": "canceled", "by": by, "action": pending["action"]})
+        else:
+            # nada pendente aqui: garante que o servidor também esqueça um aviso antigo
+            await self._emit({"event": "cleared", "by": by})
         self._changed()
         return {"canceled": bool(pending) and ok, "action": pending["action"] if pending else None}
