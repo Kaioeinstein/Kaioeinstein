@@ -44,7 +44,7 @@ $ok = $false
 for ($i = 1; $i -le 6; $i++) {
     $out = robocopy $Src $Dst /E /R:2 /W:1 /NP /NJH /NJS /NDL
     $code = $LASTEXITCODE
-    L "cópia tentativa $i: robocopy $code"
+    L "cópia tentativa ${i}: robocopy $code"
     if ($code -lt 8) { $ok = $true; break }
     L ($out | Select-Object -Last 8 | Out-String)
     Start-Sleep -Seconds 3
@@ -194,8 +194,10 @@ def start_helper(prep: dict, wait: float = 15.0) -> None:
         try:
             proc = subprocess.Popen(args, creationflags=flags, **kw)  # nosec B603 - argumentos fixos
         except OSError as exc:
-            log.info("Ajudante sem BREAKAWAY_FROM_JOB (%s)", exc)
-            proc = subprocess.Popen(args, creationflags=flags & ~0x01000000, **kw)  # nosec B603
+            # o agente está num "job" do Windows que não deixa filhos saírem dele: o ajudante morreria junto com o
+            # agente. O WMI cria o processo fora do job (como se o próprio Windows o iniciasse).
+            log.info("Ajudante pelo WMI (BREAKAWAY_FROM_JOB negado: %s)", exc)
+            proc = _start_outside_job(args, out)
     end = time.time() + wait
     while time.time() < end:
         try:
@@ -204,7 +206,7 @@ def start_helper(prep: dict, wait: float = 15.0) -> None:
                 return
         except OSError:
             pass
-        if proc.poll() is not None:
+        if proc.poll() not in (None, 0):  # terminou com erro (0 = intermediário do WMI concluiu; segue esperando o log)
             break
         time.sleep(0.3)
     if proc.poll() is None:
@@ -216,6 +218,23 @@ def start_helper(prep: dict, wait: float = 15.0) -> None:
         pass
     raise UpdateRefused(f"O ajudante de atualização não iniciou (código {proc.returncode}); o agente continua na versão atual."
                         + (f" Detalhe: {detail}" if detail else ""))
+
+
+def _start_outside_job(args: list[str], out) -> subprocess.Popen:
+    """Inicia `args` via Win32_Process.Create (WMI): o processo nasce fora do job do agente, sem janela.
+
+    Devolve o processo do PowerShell intermediário (termina logo); a confirmação real vem do update-helper.log.
+    """
+    from .power import system_exe
+
+    ps = ("$si = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }; "
+          "$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create "
+          "-Arguments @{ CommandLine = $env:EINSTEIN_HELPER_CMD; ProcessStartupInformation = $si }; "
+          "Write-Output ('WMI Create: ' + $r.ReturnValue + ' PID ' + $r.ProcessId); exit [int]$r.ReturnValue")
+    env = dict(os.environ, EINSTEIN_HELPER_CMD=subprocess.list2cmdline(args))
+    return subprocess.Popen([system_exe("WindowsPowerShell\\v1.0\\powershell"), "-NoProfile", "-NonInteractive",
+                             "-ExecutionPolicy", "Bypass", "-Command", ps], env=env, creationflags=0x08000000,
+                            stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, close_fds=True)  # nosec B603
 
 
 def exit_for_update(version: str) -> None:

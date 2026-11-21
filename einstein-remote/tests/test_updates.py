@@ -210,3 +210,14 @@ def test_offer_does_not_loop_when_update_not_applied(client, owner, tmp_path):
     assert calls == ["agent.update"]
     notes = [n["message"] for n in client.get("/api/notifications", headers=owner[0]).json() if n["kind"] == "update"]
     assert any("não foi aplicada" in n for n in notes)
+
+
+def test_helper_script_has_no_drive_qualified_variables():
+    """Regressão (CI Windows): '"$i: ..."' é lido pelo PowerShell como variável de unidade e o script inteiro
+    não roda. Variáveis seguidas de ':' precisam de ${...}."""
+    import re
+
+    from einstein_agent import updater
+
+    bad = [m.group(0) for m in re.finditer(r"\$(?!env:|\{)[A-Za-z_]\w*:", updater.HELPER)]
+    assert not bad, bad
