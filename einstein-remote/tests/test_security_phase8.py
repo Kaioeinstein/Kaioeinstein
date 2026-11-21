@@ -98,7 +98,8 @@ def test_two_factor_login_flow(client, owner):
     assert bad.status_code == 401
     # o código já usado para ativar não vale de novo (proteção contra reutilização)
     assert client.post("/api/auth/2fa/verify", json={"challenge": ch, "code": totp.code_at(secret, used_step)}, headers=XHR).status_code == 401
-    ok = client.post("/api/auth/2fa/verify", json={"challenge": ch, "code": totp.code_at(secret, totp.current_step() + 1)}, headers=XHR)
+    late_step = totp.current_step() + 1  # guardado: o teste de replay abaixo reusa exatamente este código
+    ok = client.post("/api/auth/2fa/verify", json={"challenge": ch, "code": totp.code_at(secret, late_step)}, headers=XHR)
     assert ok.status_code == 200 and ok.json()["access_token"]
 
     # código de recuperação: funciona uma única vez
@@ -117,7 +118,7 @@ def test_two_factor_login_flow(client, owner):
     assert client.post("/api/auth/2fa/disable", headers=headers, json={"password": "errada", "code": "123456"}).status_code == 403
     # códigos desta janela de 30 s já foram usados: reutilizar é recusado (proteção contra replay)…
     assert client.post("/api/auth/2fa/disable", headers=headers,
-                       json={"password": STRONG, "code": totp.code_at(secret, totp.current_step() + 1)}).status_code == 403
+                       json={"password": STRONG, "code": totp.code_at(secret, late_step)}).status_code == 403
     # …mas um código de recuperação ainda não usado permite desativar
     r = client.post("/api/auth/2fa/disable", headers=headers, json={"password": STRONG, "code": codes[1]})
     assert r.status_code == 200 and r.json()["enabled"] is False
