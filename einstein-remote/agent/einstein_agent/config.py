@@ -84,7 +84,10 @@ class AgentConfig:
     allow_process_kill: bool = True  # o dono pode proibir, no próprio PC, o encerramento remoto de processos
     screen_access: str = "allow"  # acesso à tela: "allow" (sem perguntar) | "ask" (perguntar a cada sessão) | "deny"
     allow_remote_input: bool = True
-    allow_power: bool = True  # permite desligar/reiniciar/suspender/hibernar/bloquear pelo painel  # permite controlar mouse e teclado durante o compartilhamento
+    allow_power: bool = True  # permite desligar/reiniciar/suspender/hibernar/bloquear pelo painel
+    allow_maintenance: bool = True  # limpeza de disco, inicialização, modo de energia e modo jogo pelo painel
+    game_mode_auto: bool = False  # modo jogo automático (o dono liga no painel)
+    game_processes: list = field(default_factory=list)  # jogos extras escolhidos pelo dono (nome do .exe)
 
     @property
     def paired(self) -> bool:

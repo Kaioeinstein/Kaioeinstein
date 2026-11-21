@@ -176,3 +176,15 @@ PYTHONPATH=server python -m app.admin reset-password kaio   # define uma nova se
 pip install -r requirements-dev.txt
 python -m pytest -q
 ```
+
+## Otimizar (limpeza, modo jogo, inicialização)
+Menu **Otimizar** (computador e celular):
+- **Modo jogo:** ligue **Automático**. Ao abrir um jogo da Steam, Epic, Riot, Xbox, EA, Ubisoft, GOG ou Rockstar, o
+  Windows vai para *Melhor desempenho* e você recebe um aviso; ao fechar, volta ao modo anterior. Jogos de outros
+  lugares (ex.: Minecraft = `javaw`, `Roblox`): escreva o nome do programa em **Outros jogos** › Salvar.
+  O modo de energia só pode ser trocado com o plano **Equilibrado** ativo (padrão do Windows).
+- **Limpeza de disco:** **Analisar** mostra quanto cada item libera; marque e toque em **Limpar**. Só pastas do seu
+  usuário; arquivos em uso ou alterados na última hora ficam.
+- **Iniciam com o Windows:** **Mostrar** e desligue o que não precisa abrir sozinho. Itens "sistema" (instalados para
+  todos os usuários) só mudam como administrador no próprio PC.
+- Para bloquear tudo isso pelo painel: bandeja do agente › desmarque **Permitir limpeza e otimização pelo painel**.

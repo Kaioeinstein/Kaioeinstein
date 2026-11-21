@@ -79,6 +79,8 @@ async def agent_socket(ws: WebSocket):
                 await st.hub.transfers.agent_message(conn.device_id, data)
             elif kind == "power_event":
                 await st.hub.power_event(conn, data)
+            elif kind == "game_event":
+                await st.hub.game_event(conn, data)
             elif kind == "screen_event":
                 await st.hub.screens.agent_event(conn.device_id, data)
             elif kind == "status" and isinstance(data.get("state"), str):

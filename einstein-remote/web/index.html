@@ -54,6 +54,7 @@
         <button data-view="dashboard" class="active"><i class="ic ic-grid"></i><span>Painel</span></button>
         <button data-view="monitor"><i class="ic ic-cpu"></i><span>Monitor</span></button>
         <button data-view="files"><i class="ic ic-folder"></i><span>Arquivos</span></button>
+        <button data-view="optimize" class="admin-only"><i class="ic ic-bolt"></i><span><b class="lbl-full">Otimizar</b><b class="lbl-short">Otimizar</b></span></button>
         <button data-view="devices"><i class="ic ic-pc"></i><span><b class="lbl-full">Dispositivos</b><b class="lbl-short">PCs</b></span></button>
         <button data-view="notifications"><i class="ic ic-bell"></i><span>Alertas</span><em id="notif-badge" class="badge hidden">0</em></button>
         <button data-view="security" class="nav-desktop"><i class="ic ic-shield"></i><span><b class="lbl-full">Segurança</b><b class="lbl-short">Sessões</b></span></button>
@@ -90,7 +91,7 @@
               <button class="shortcut admin-only" data-goto="devices"><i class="ic ic-pc"></i><span>Vincular PC</span><small>código único</small></button>
               <button class="shortcut" data-goto="notifications"><i class="ic ic-bell"></i><span>Alertas</span><small id="sc-alerts">—</small></button>
               <button class="shortcut admin-only" id="sc-screen"><i class="ic ic-screen"></i><span>Ver tela</span><small>controle remoto</small></button>
-              <button class="shortcut" data-goto="settings"><i class="ic ic-gear"></i><span>Ajustes</span><small>limites · usuários</small></button>
+              <button class="shortcut admin-only" data-goto="optimize"><i class="ic ic-bolt"></i><span>Otimizar</span><small>limpeza · modo jogo</small></button>
             </div>
           </div>
           <div class="hero-visual" aria-hidden="true">
@@ -246,6 +247,41 @@
           <div class="card-head"><h3>Transferências</h3><small class="muted">conferidas com SHA-256 de ponta a ponta</small></div>
           <div id="fl-tlist" class="fl-tlist"></div>
         </article>
+      </section>
+
+      <!-- OTIMIZAR -->
+      <section data-page="optimize" class="page hidden">
+        <div id="op-offline" class="glass empty hidden"><h2>Computador offline</h2><p class="muted">Ligue o PC (e o agente) para limpar e otimizar.</p></div>
+        <div id="op-body" class="op-grid">
+          <article class="glass op-game">
+            <div class="card-head"><h3>Modo jogo</h3><span id="op-game-state" class="pill off">—</span></div>
+            <label class="switch"><input type="checkbox" id="op-game-auto"><i></i>
+              <span>Automático: quando um jogo abre, o PC vai para <b>Melhor desempenho</b>; quando fecha, volta ao modo anterior.</span></label>
+            <p class="muted small">Reconhece jogos da Steam, Epic, Riot, Xbox, EA, Ubisoft, GOG e Rockstar. No Acer Nitro, o modo de energia do Windows acompanha o perfil do NitroSense.</p>
+            <p class="op-err small" id="op-game-error"></p>
+            <label class="field"><span>Outros jogos (nome do programa, separado por vírgula)</span>
+              <div class="row"><input class="input" id="op-game-list" placeholder="ex.: javaw, Roblox, GTA5" autocomplete="off"><button class="btn ghost sm" id="op-game-save" type="button">Salvar</button></div></label>
+            <div class="op-sep"></div>
+            <h4>Modo de energia agora</h4>
+            <div class="seg op-modes" id="op-modes"></div>
+            <p class="muted small" id="op-mode-note"></p>
+            <div class="row hidden" id="op-plan-row"><span class="muted small">Plano de energia</span><select class="select" id="op-plan" aria-label="Plano de energia"></select></div>
+          </article>
+
+          <article class="glass op-clean">
+            <div class="card-head"><h3>Limpeza de disco</h3><button class="btn ghost sm" id="op-scan" type="button">Analisar</button></div>
+            <div id="op-disks" class="op-disks"></div>
+            <div id="op-cats" class="op-cats"></div>
+            <button class="btn primary" id="op-clean" type="button" disabled>Nada para limpar</button>
+            <p class="muted small">Só pastas do seu usuário. Arquivos em uso ou alterados na última hora nunca são apagados.</p>
+          </article>
+
+          <article class="glass op-startup-card">
+            <div class="card-head"><h3>Iniciam com o Windows</h3><button class="btn ghost sm" id="op-startup-load" type="button">Mostrar</button></div>
+            <p class="muted small">Menos programas iniciando = Windows liga mais rápido e sobra memória. Desativar não desinstala nada (igual ao Gerenciador de Tarefas).</p>
+            <div id="op-startup" class="op-startup"></div>
+          </article>
+        </div>
       </section>
 
       <!-- DISPOSITIVOS -->

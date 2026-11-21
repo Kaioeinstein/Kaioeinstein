@@ -6,6 +6,7 @@ import { Monitor } from "./monitor.js";
 import { RemoteViewer } from "./remote.js";
 import { PowerCenter } from "./power.js";
 import { FileBrowser } from "./files.js";
+import { Optimizer } from "./optimize.js";
 import { PushCard, TwoFactorCard } from "./security.js";
 
 // ----------------------------------------------------------------- utilidades
@@ -125,11 +126,13 @@ const TITLES = {
   settings: ["Ajustes", "Limites de alerta, sua conta, usuários e permissões."],
   monitor: ["System Monitor", "Processos, aplicativos, serviços, hardware e rede em tempo real."],
   files: ["Arquivos", "Somente as pastas que o dono liberou no computador."],
+  optimize: ["Otimizar", "Modo jogo, modo de energia, limpeza de disco e inicialização do Windows."],
 };
 let monitor = null;
 let remote = null;
 let power = null;
 let files = null;
+let optimizer = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -145,6 +148,7 @@ function go(view) {
   if (view === "settings") loadSettingsPage();
   if (monitor) view === "monitor" ? monitor.show() : monitor.hide();
   if (view === "files") files?.show();
+  if (view === "optimize") optimizer?.show();
   if (view === "dashboard") Object.values(charts).forEach((c) => c.draw());
 }
 $$("#nav button").forEach((b) => b.addEventListener("click", () => go(b.dataset.view)));
@@ -170,6 +174,7 @@ async function startApp() {
   $("#enroll-banner").classList.toggle("hidden", !enrollOnly);
   if (enrollOnly) { state.live?.close(); go("settings"); return; }
   files ??= new FileBrowser({ device: () => state.devices.get(state.selected), devices: () => [...state.devices.values()], live: () => state.live });
+  optimizer ??= new Optimizer({ device: () => state.devices.get(state.selected), live: () => state.live });
   power ??= new PowerCenter({ device: () => state.devices.get(state.selected), live: () => state.live });
   remote ??= new RemoteViewer({ live: () => state.live, device: (id) => state.devices.get(id) });
   monitor ??= new Monitor({ device: () => state.devices.get(state.selected), live: () => state.live, role: () => API.currentUser?.role });
@@ -270,6 +275,7 @@ $("#device-select").addEventListener("change", (e) => {
   renderDashboard(true);
   monitor?.deviceChanged();
   if (state.view === "files") files?.show();
+  if (state.view === "optimize") optimizer?.show();
 });
 
 function setGauge(id, value, sub, { warn = 75, crit = 90, unit = "%", max = 100 } = {}) {

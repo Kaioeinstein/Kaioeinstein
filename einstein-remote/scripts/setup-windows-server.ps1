@@ -11,7 +11,7 @@
     4. libera a porta 8443 no firewall SOMENTE para a rede Tailscale e a rede local
     5. cria a tarefa "EINSTEIN REMOTE Servidor" (inicia com o PC, reinicia se cair)
        e a tarefa "EINSTEIN REMOTE Certificado" (renova o certificado todo dia)
-    6. impede o PC de suspender quando estiver na tomada (use -KeepSleep para não mexer)
+    6. impede o PC de suspender na tomada, inclusive com a tampa fechada (use -KeepSleep para não mexer)
     7. liga o servidor, confere e mostra o endereço para abrir no celular
 
   Parar o servidor:  ... setup-windows-server.ps1 -Stop      (ligar de novo: rode o script sem opções)
@@ -228,7 +228,10 @@ if (-not $KeepSleep) {
     Step "Energia"
     powercfg /change standby-timeout-ac 0 | Out-Null
     powercfg /change hibernate-timeout-ac 0 | Out-Null
-    Ok "o PC não suspende mais quando está na tomada (a tela ainda pode desligar)"
+    # notebook: fechar a tampa NA TOMADA não suspende mais (na bateria continua suspendendo, para não esquentar na mochila)
+    powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0 | Out-Null
+    powercfg /setactive SCHEME_CURRENT | Out-Null
+    Ok "na tomada o PC não suspende mais - nem com a tampa fechada (a tela ainda pode desligar)"
 }
 
 # ------------------------------------------------------------------ 7. ligar e conferir

@@ -2,6 +2,24 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.0] — 2026-11-21
+### Adicionado
+- **Otimizar** (nova página do painel, também no celular):
+  - **Modo jogo automático**: quando um jogo abre (Steam, Epic, Riot, Xbox, EA, Ubisoft, GOG, Rockstar ou
+    programas escolhidos pelo dono), o Windows passa para *Melhor desempenho*; quando fecha, volta ao modo
+    anterior. Aviso no painel e no celular. No Acer Nitro, o modo de energia do Windows acompanha o NitroSense.
+  - **Modo de energia** (Economia / Equilibrado / Melhor desempenho) e **plano de energia** pelo painel.
+  - **Limpeza de disco**: mostra antes quanto cada categoria libera (temporários, cache dos navegadores,
+    relatórios de erro, Lixeira) e só apaga após confirmação; nunca segue links, só pastas do usuário,
+    preserva arquivos em uso ou alterados na última hora. Espaço livre de cada disco.
+  - **Programas que iniciam com o Windows**: ativar/desativar como o Gerenciador de Tarefas (sem desinstalar).
+  - Na bandeja do PC: **Permitir limpeza e otimização pelo painel** (o dono pode bloquear tudo).
+- `setup-windows-server.ps1`: na tomada, o notebook não suspende mais nem com a **tampa fechada**
+  (o servidor ficava fora do ar).
+
+### Corrigido
+- Barra de navegação do celular com 7 botões cabe numa linha.
+
 ## [1.0.1] — 2026-11-21
 ### Corrigido
 - **Suspender e hibernar pelo painel falhavam no Windows 64 bits** com "Não foi possível abrir o token do

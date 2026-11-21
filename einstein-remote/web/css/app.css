@@ -472,7 +472,8 @@ fieldset.toggles legend { color: var(--muted); font-size: 12.5px; padding: 0 6px
 .page > *, .grid > *, .glass { min-width: 0; }
 .table-wrap { max-width: 100%; }
 @media (max-width: 900px) {
-  .nav { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  /* quantos botões houver (o Otimizar só aparece para administradores): todos numa linha só */
+  .nav { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
   .nav button { min-width: 0; }
   .nav button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mon-table th, .mon-table td { padding: 8px 6px; }
@@ -622,3 +623,28 @@ body.enroll-only [data-page=settings] .grid.two > article:first-child { display:
   .tf-setup { grid-template-columns: 1fr; justify-items: start; }
   .tf-code-list { grid-template-columns: 1fr; }
 }
+
+/* ---------------------------------------------------------------- Otimizar */
+.op-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.op-grid .glass { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.op-grid h4 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.op-sep { height: 1px; background: var(--border); margin: 4px 0; }
+.op-modes { flex-wrap: wrap; }
+.op-modes button { padding: 8px 12px; font-size: 13px; }
+.op-err { color: var(--amber); margin: 0; }
+.op-err:empty { display: none; }
+.op-disks { display: flex; flex-direction: column; gap: 10px; }
+.op-disk .row { margin-bottom: 6px; justify-content: space-between; }
+.bar.danger i { background: linear-gradient(90deg, #ff8a3d, var(--red)); }
+.op-cats { display: flex; flex-direction: column; gap: 8px; }
+.op-cat { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 12px; background: rgba(0, 0, 0, .2); cursor: pointer; }
+.op-cat input { width: 18px; height: 18px; accent-color: var(--purple); }
+.op-cat span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.op-cat em { font-style: normal; font-weight: 700; color: var(--green); white-space: nowrap; }
+.op-cat:has(input:disabled) { opacity: .55; cursor: default; }
+.op-startup { display: flex; flex-direction: column; gap: 6px; max-height: 460px; overflow: auto; }
+.op-start { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 9px 4px; border-bottom: 1px solid var(--border); }
+.op-start span { display: flex; flex-direction: column; min-width: 0; }
+.op-start small.muted { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 600px) { .op-grid { grid-template-columns: 1fr; } }

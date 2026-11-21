@@ -27,7 +27,7 @@ from urllib.parse import urlparse
 from websockets.asyncio.client import connect
 from websockets.exceptions import ConnectionClosed, InvalidStatus
 
-from . import commands
+from . import commands, maintenance
 from .config import AgentConfig, config_path
 from .metrics import MetricsCollector, system_info
 from .power import PowerController, PowerError
@@ -73,6 +73,7 @@ class Agent:
         self.cfg = cfg
         self.on_screen = on_screen
         self.power = PowerController(on_change=on_power)  # sobrevive a reconexões (prazos de suspensão)
+        self.game = maintenance.GameMode(emit=self._emit_threadsafe)  # modo jogo: independe da conexão
         self.screen: ScreenController | None = None
         self.collector = MetricsCollector()
         self.on_status = on_status
@@ -109,6 +110,20 @@ class Agent:
             self._cfg_mtime = m
             self.cfg = AgentConfig.load()
 
+    def _emit_threadsafe(self, msg: dict) -> None:
+        """Envia um evento ao servidor a partir de outra thread (modo jogo); sem conexão, só fica no log."""
+        ws, loop = self._ws, self._loop
+        if ws is None or loop is None or loop.is_closed():
+            return
+
+        async def send():
+            try:
+                await ws.send(json.dumps(msg))
+            except Exception:
+                pass
+
+        asyncio.run_coroutine_threadsafe(send(), loop)
+
     # -- controle (pode ser chamado de outra thread) ------------------------------
     def stop(self) -> None:
         """Encerra o agente. Seguro para chamar de qualquer thread."""
@@ -128,6 +143,7 @@ class Agent:
             log.debug("Limpeza de temporários falhou", exc_info=True)
         self._stop = asyncio.Event()
         check_transport(self.cfg)
+        self.game.start()
         backoff = 1.0
         try:
             while not self._stop.is_set():
@@ -158,6 +174,7 @@ class Agent:
                 await self._sleep(backoff)
                 backoff = min(backoff * 2, 60)
         finally:
+            self.game.stop()  # volta ao modo de energia anterior se um jogo estava aberto
             if self.status.state != "rejected":
                 self._set_status("stopped")
 
@@ -183,6 +200,7 @@ class Agent:
                 send_bytes=ws.send, send_json=lambda m: ws.send(json.dumps(m)), on_change=self.on_screen
             )
             self.power.send_json = lambda m: ws.send(json.dumps(m))
+            self._ws = ws
             self.transfers = Transfers()
             self.transfers.bind(ws.send, lambda m: ws.send(json.dumps(m)))
             if self.power.pending:  # reconectou durante um prazo: servidor volta a saber
@@ -204,6 +222,7 @@ class Agent:
                 for t in tasks:
                     t.cancel()
                 input_worker.cancel()
+                self._ws = None
                 await self.screen.close()  # solta teclas/botões, remove a faixa
                 await self.transfers.close()  # apaga temporários de uploads interrompidos
         return True
@@ -305,6 +324,38 @@ class Agent:
             return False, None, f"{type(exc).__name__}: {exc}"
         return False, None, f"Ação '{action}' não suportada por este agente"
 
+    async def _maint_command(self, action: str, params: dict):
+        m = maintenance
+        try:
+            if action == "maint.scan":
+                data = await asyncio.to_thread(m.scan)
+            elif action == "maint.clean":
+                data = await asyncio.to_thread(m.clean, [str(i) for i in params.get("categories") or []])
+            elif action == "maint.startup":
+                data = {"items": await asyncio.to_thread(m.startup_items), "windows": m.WINDOWS}
+            elif action == "maint.startup.set":
+                data = await asyncio.to_thread(m.set_startup, str(params.get("id", "")), bool(params.get("enabled")))
+            elif action == "perf.status":
+                data = await asyncio.to_thread(m.perf_status, self.game)
+            elif action == "perf.mode":
+                await asyncio.to_thread(m._allowed)
+                data = {"mode": await asyncio.to_thread(m.set_mode, str(params.get("mode", "")))}
+            elif action == "perf.plan":
+                await asyncio.to_thread(m._allowed)
+                data = {"plan": await asyncio.to_thread(m.set_plan, str(params.get("guid", "")))}
+            elif action == "perf.game":
+                data = await asyncio.to_thread(m.configure_game, params)
+                await asyncio.to_thread(self.game.tick)  # aplica na hora (jogo já aberto / modo desligado)
+                data["state"] = self.game.state()
+            else:
+                return False, None, f"Ação '{action}' não suportada por este agente"
+            return True, data, None
+        except m.MaintenanceRefused as exc:
+            return False, None, str(exc)
+        except Exception as exc:
+            log.exception("Falha no comando %s", action)
+            return False, None, f"{type(exc).__name__}: {exc}"
+
     async def _power_command(self, action: str, params: dict):
         from . import power
 
@@ -331,6 +382,8 @@ class Agent:
             ok, data, error = await self._power_command(action, params)
         elif action.startswith("files."):
             ok, data, error = await self._files_command(action, params)
+        elif action.startswith(("maint.", "perf.")):
+            ok, data, error = await self._maint_command(action, params)
         else:
             ok, data, error = await commands.execute(action, params)
         try:

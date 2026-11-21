@@ -61,6 +61,15 @@ ALLOWED_ACTIONS: dict[str, ActionPolicy] = {
     "files.roots": ActionPolicy("admin", audit=False),
     "files.list": ActionPolicy("admin", audit=False),
     "files.mkdir": ActionPolicy("admin"),
+    # Limpeza e otimização: apagar exige confirmação; o dono pode bloquear tudo no PC
+    "maint.scan": ActionPolicy("admin", audit=False),
+    "maint.clean": ActionPolicy("admin", confirm=True),
+    "maint.startup": ActionPolicy("admin", audit=False),
+    "maint.startup.set": ActionPolicy("admin"),
+    "perf.status": ActionPolicy("viewer", audit=False),
+    "perf.mode": ActionPolicy("admin"),
+    "perf.plan": ActionPolicy("admin"),
+    "perf.game": ActionPolicy("admin"),
 }
 POWER_LABELS = {"shutdown": "desligamento", "restart": "reinício", "sleep": "suspensão", "hibernate": "hibernação"}
 
@@ -373,6 +382,19 @@ class Hub:
                     await self.notify("info", "device_stopped", f"{device['name']}: agente encerrado no próprio computador", conn.device_id)
                 else:
                     await self.notify("warning", "device_offline", f"{device['name']} desconectado", conn.device_id)
+
+    async def game_event(self, conn: AgentConn, msg: dict) -> None:
+        """Modo jogo automático: jogo abriu (desempenho máximo) ou fechou (volta ao modo anterior)."""
+        device = self.db.get_device_public(conn.device_id)
+        name = device["name"] if device else conn.device_id
+        game = str(msg.get("game") or "jogo")[:80]
+        if msg.get("event") == "started":
+            if msg.get("error"):
+                await self.notify("warning", "game_mode", f"{name}: {game} aberto, mas o modo desempenho falhou — {str(msg['error'])[:200]}", conn.device_id)
+            else:
+                await self.notify("info", "game_mode", f"{name}: modo jogo ativado ({game}) — Melhor desempenho", conn.device_id)
+        elif msg.get("event") == "stopped":
+            await self.notify("info", "game_mode", f"{name}: modo jogo desativado ({game} fechado)", conn.device_id)
 
     async def power_event(self, conn: AgentConn, msg: dict) -> None:
         """Agendamentos/cancelamentos vindos do agente (inclusive cancelamento feito no próprio PC)."""

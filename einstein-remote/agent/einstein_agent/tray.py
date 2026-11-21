@@ -121,6 +121,14 @@ class TrayApp:
         log.info("Controle de energia pelo painel %s pelo proprietário (bandeja)", "permitido" if cfg.allow_power else "bloqueado")
         self._refresh_menu()
 
+    def toggle_maintenance(self, *_):
+        cfg = self.cfg
+        cfg.allow_maintenance = not cfg.allow_maintenance
+        cfg.save()
+        log.info("Limpeza e otimização pelo painel %s pelo proprietário (bandeja)",
+                 "permitidas" if cfg.allow_maintenance else "bloqueadas")
+        self._refresh_menu()
+
     def _on_screen(self, st: dict) -> None:
         was = self.screen["active"]
         self.screen = st
@@ -203,6 +211,8 @@ class TrayApp:
               checked=lambda item: self.cfg.allow_remote_input, visible=paired),
             M("Permitir desligar/reiniciar pelo painel", self.toggle_power,
               checked=lambda item: self.cfg.allow_power, visible=paired),
+            M("Permitir limpeza e otimização pelo painel", self.toggle_maintenance,
+              checked=lambda item: self.cfg.allow_maintenance, visible=paired),
             M("Pastas liberadas para o painel…", self.open_folders, visible=paired),
             SEP,
             M("Ver registro (log)", self.open_log),
