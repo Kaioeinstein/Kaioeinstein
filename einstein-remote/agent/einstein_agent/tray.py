@@ -121,6 +121,13 @@ class TrayApp:
         log.info("Controle de energia pelo painel %s pelo proprietário (bandeja)", "permitido" if cfg.allow_power else "bloqueado")
         self._refresh_menu()
 
+    def toggle_volume(self, *_):
+        cfg = self.cfg
+        cfg.allow_volume = not cfg.allow_volume
+        cfg.save()
+        log.info("Controle de volume pelo painel %s pelo proprietário (bandeja)", "permitido" if cfg.allow_volume else "bloqueado")
+        self._refresh_menu()
+
     def toggle_maintenance(self, *_):
         cfg = self.cfg
         cfg.allow_maintenance = not cfg.allow_maintenance
@@ -211,6 +218,8 @@ class TrayApp:
               checked=lambda item: self.cfg.allow_remote_input, visible=paired),
             M("Permitir desligar/reiniciar pelo painel", self.toggle_power,
               checked=lambda item: self.cfg.allow_power, visible=paired),
+            M("Permitir controlar o volume pelo painel", self.toggle_volume,
+              checked=lambda item: self.cfg.allow_volume, visible=paired),
             M("Permitir limpeza e otimização pelo painel", self.toggle_maintenance,
               checked=lambda item: self.cfg.allow_maintenance, visible=paired),
             M("Pastas liberadas para o painel…", self.open_folders, visible=paired),

@@ -109,6 +109,7 @@ def cmd_status(args) -> int:
     print(f"Acesso à tela: {({'allow': 'permitido sem perguntar', 'ask': 'perguntar a cada sessão', 'deny': 'bloqueado'}).get(cfg.screen_access, cfg.screen_access)}")
     print(f"Controle de mouse e teclado: {'permitido' if cfg.allow_remote_input else 'bloqueado'}")
     print(f"Controle de energia pelo painel: {'permitido' if cfg.allow_power else 'bloqueado'}")
+    print(f"Controle de volume pelo painel: {'permitido' if cfg.allow_volume else 'bloqueado'}")
     print(f"Limpeza e otimização pelo painel: {'permitidas' if cfg.allow_maintenance else 'bloqueadas'}")
     print(f"Modo jogo automático: {'ligado' if cfg.game_mode_auto else 'desligado'}")
     return 0

@@ -324,6 +324,23 @@ class Agent:
             return False, None, f"{type(exc).__name__}: {exc}"
         return False, None, f"Ação '{action}' não suportada por este agente"
 
+    async def _audio_command(self, action: str, params: dict):
+        from . import audio
+
+        try:
+            if action == "audio.status":
+                return True, await asyncio.to_thread(audio.status), None
+            if action == "audio.set":
+                data = await asyncio.to_thread(audio.change, params)
+                log.info("Volume alterado pelo painel: %s%%%s", data.get("volume"), " (mudo)" if data.get("muted") else "")
+                return True, data, None
+            return False, None, f"Ação '{action}' não suportada por este agente"
+        except audio.AudioError as exc:
+            return False, None, str(exc)
+        except Exception as exc:
+            log.exception("Falha no controle de volume")
+            return False, None, f"{type(exc).__name__}: {exc}"
+
     async def _update_command(self, params: dict):
         """Pedido do servidor do dono: baixar, conferir (SHA-256) e trocar o agente pela versão nova."""
         from . import updater
@@ -397,6 +414,8 @@ class Agent:
             ok, data, error = await self._power_command(action, params)
         elif action.startswith("files."):
             ok, data, error = await self._files_command(action, params)
+        elif action.startswith("audio."):
+            ok, data, error = await self._audio_command(action, params)
         elif action == "agent.update":
             ok, data, error = await self._update_command(params)
         elif action.startswith(("maint.", "perf.")):

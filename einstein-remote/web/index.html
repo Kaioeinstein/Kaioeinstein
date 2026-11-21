@@ -168,6 +168,17 @@
             </div>
           </article>
 
+          <article class="glass volume-card admin-only hidden" id="vol-card">
+            <div class="card-head"><h3>Volume do PC</h3><span class="muted small" id="vol-note"></span></div>
+            <div class="vol-row">
+              <button class="btn ghost vol-mute" id="vol-mute" type="button" aria-label="Silenciar"><span id="vol-icon">🔊</span></button>
+              <button class="btn ghost sm" id="vol-down" type="button" aria-label="Diminuir volume">−</button>
+              <input type="range" id="vol-range" min="0" max="100" step="1" value="0" aria-label="Volume">
+              <button class="btn ghost sm" id="vol-up" type="button" aria-label="Aumentar volume">+</button>
+              <b id="vol-value" class="vol-value">—</b>
+            </div>
+          </article>
+
           <div class="grid two">
             <article class="glass chart-card">
               <div class="card-head"><h3>Desempenho em tempo real</h3><div class="legend"><span class="lg purple">CPU</span><span class="lg green">RAM</span></div></div>

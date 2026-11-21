@@ -70,6 +70,9 @@ ALLOWED_ACTIONS: dict[str, ActionPolicy] = {
     "perf.mode": ActionPolicy("admin"),
     "perf.plan": ActionPolicy("admin"),
     "perf.game": ActionPolicy("admin"),
+    # Volume do PC (o dono pode bloquear no PC); ajustes do controle deslizante não lotam a auditoria
+    "audio.status": ActionPolicy("viewer", audit=False),
+    "audio.set": ActionPolicy("admin", audit=False),
 }
 POWER_LABELS = {"shutdown": "desligamento", "restart": "reinício", "sleep": "suspensão", "hibernate": "hibernação"}
 

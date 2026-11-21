@@ -2,6 +2,12 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.3.0] — 2026-11-21
+### Adicionado
+- **Volume do PC** pelo painel (celular e computador): controle deslizante, − / + (10%) e silenciar, com o ícone
+  mostrando o estado atual. Usa a API de áudio do Windows (Core Audio) — o mesmo controle do ícone de som.
+  Na bandeja do PC: **Permitir controlar o volume pelo painel** (o dono pode bloquear).
+
 ## [1.2.0] — 2026-11-21
 ### Adicionado
 - **Atualização automática.** Ajustes › **Atualizações** mostra a versão instalada e a publicada; o servidor

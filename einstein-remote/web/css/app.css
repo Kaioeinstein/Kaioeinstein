@@ -657,3 +657,12 @@ body.enroll-only [data-page=settings] .grid.two > article:first-child { display:
 .upd-actions { margin-left: auto; }
 #upd-text { margin: 0; }
 @media (max-width: 600px) { .upd-actions { margin-left: 0; width: 100%; } .upd-actions .btn { flex: 1; } }
+
+/* ---------------------------------------------------------------- Volume */
+.volume-card { display: flex; flex-direction: column; gap: 12px; }
+.vol-row { display: flex; align-items: center; gap: 10px; }
+.vol-row input[type=range] { flex: 1; min-width: 0; accent-color: var(--purple); height: 28px; }
+.vol-mute { font-size: 18px; padding: 6px 12px; }
+.vol-mute.muted { border-color: var(--red); }
+.vol-value { min-width: 48px; text-align: right; font-size: 18px; }
+.volume-card.disabled .vol-row { opacity: .5; pointer-events: none; }

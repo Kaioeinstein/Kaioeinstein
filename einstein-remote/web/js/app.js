@@ -8,6 +8,7 @@ import { PowerCenter } from "./power.js";
 import { FileBrowser } from "./files.js";
 import { Optimizer } from "./optimize.js";
 import { UpdateCard } from "./updates.js";
+import { VolumeCard } from "./volume.js";
 import { PushCard, TwoFactorCard } from "./security.js";
 
 // ----------------------------------------------------------------- utilidades
@@ -135,6 +136,7 @@ let power = null;
 let files = null;
 let optimizer = null;
 let updateCard = null;
+let volume = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -177,6 +179,7 @@ async function startApp() {
   if (enrollOnly) { state.live?.close(); go("settings"); return; }
   files ??= new FileBrowser({ device: () => state.devices.get(state.selected), devices: () => [...state.devices.values()], live: () => state.live });
   optimizer ??= new Optimizer({ device: () => state.devices.get(state.selected), live: () => state.live });
+  volume ??= new VolumeCard({ device: () => state.devices.get(state.selected), live: () => state.live });
   power ??= new PowerCenter({ device: () => state.devices.get(state.selected), live: () => state.live });
   remote ??= new RemoteViewer({ live: () => state.live, device: (id) => state.devices.get(id) });
   monitor ??= new Monitor({ device: () => state.devices.get(state.selected), live: () => state.live, role: () => API.currentUser?.role });
@@ -311,6 +314,7 @@ function renderDashboard(full) {
   st.className = `pill ${stCls}`;
   $("#d-agent").textContent = d.agent_version ? `v${d.agent_version}` : "—";
   power?.render(d, full);
+  volume?.render(d, full);
   $("#d-os").textContent = info.os || d.os || "—";
   $("#d-host").textContent = info.hostname || d.hostname || "—";
   $("#d-cpu-model").textContent = info.cpu_model ? `${info.cpu_model} (${info.cpu_cores}C/${info.cpu_threads}T)` : "—";
