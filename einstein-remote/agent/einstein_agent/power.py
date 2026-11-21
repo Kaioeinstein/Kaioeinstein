@@ -94,7 +94,10 @@ def _enable_shutdown_privilege() -> None:
     import ctypes
     from ctypes import wintypes
 
-    advapi32, kernel32 = ctypes.windll.advapi32, ctypes.windll.kernel32
+    # tipos declarados: sem isso, no Windows 64 bits o "handle" do processo atual (-1) era truncado
+    # para 32 bits e o OpenProcessToken falhava ("Não foi possível abrir o token do processo")
+    advapi32 = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
     class LUID(ctypes.Structure):
         _fields_ = [("LowPart", wintypes.DWORD), ("HighPart", wintypes.LONG)]
@@ -105,17 +108,30 @@ def _enable_shutdown_privilege() -> None:
     class TOKEN_PRIVILEGES(ctypes.Structure):
         _fields_ = [("PrivilegeCount", wintypes.DWORD), ("Privileges", LUID_AND_ATTRIBUTES * 1)]
 
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.GetCurrentProcess.argtypes = []
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    advapi32.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+    advapi32.LookupPrivilegeValueW.restype = wintypes.BOOL
+    advapi32.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TOKEN_PRIVILEGES),
+                                               wintypes.DWORD, ctypes.c_void_p, ctypes.c_void_p]
+    advapi32.AdjustTokenPrivileges.restype = wintypes.BOOL
+
     token = wintypes.HANDLE()
     TOKEN_ADJUST_PRIVILEGES, TOKEN_QUERY, SE_PRIVILEGE_ENABLED = 0x20, 0x8, 0x2
+    ERROR_NOT_ALL_ASSIGNED = 1300
     if not advapi32.OpenProcessToken(kernel32.GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, ctypes.byref(token)):
-        raise PowerError("Não foi possível abrir o token do processo.")
+        raise PowerError(f"Não foi possível abrir o token do processo (erro {ctypes.get_last_error()}).")
     try:
         luid = LUID()
         if not advapi32.LookupPrivilegeValueW(None, "SeShutdownPrivilege", ctypes.byref(luid)):
             raise PowerError("Privilégio de desligamento indisponível.")
         tp = TOKEN_PRIVILEGES(1, (LUID_AND_ATTRIBUTES * 1)(LUID_AND_ATTRIBUTES(luid, SE_PRIVILEGE_ENABLED)))
-        advapi32.AdjustTokenPrivileges(token, False, ctypes.byref(tp), 0, None, None)
-        if kernel32.GetLastError() != 0:
+        ctypes.set_last_error(0)
+        ok = advapi32.AdjustTokenPrivileges(token, False, ctypes.byref(tp), 0, None, None)
+        if not ok or ctypes.get_last_error() == ERROR_NOT_ALL_ASSIGNED:
             raise PowerError("O Windows não concedeu o privilégio de desligamento a este usuário.")
     finally:
         kernel32.CloseHandle(token)
@@ -150,8 +166,11 @@ def suspend(hibernate: bool) -> None:
         import ctypes
 
         _enable_shutdown_privilege()
-        if not ctypes.windll.powrprof.SetSuspendState(bool(hibernate), False, False):
-            raise PowerError("O Windows recusou a suspensão/hibernação.")
+        powrprof = ctypes.WinDLL("powrprof", use_last_error=True)
+        powrprof.SetSuspendState.argtypes = [ctypes.c_ubyte, ctypes.c_ubyte, ctypes.c_ubyte]
+        powrprof.SetSuspendState.restype = ctypes.c_ubyte
+        if not powrprof.SetSuspendState(int(bool(hibernate)), 0, 0):
+            raise PowerError(f"O Windows recusou a suspensão/hibernação (erro {ctypes.get_last_error()}).")
     else:
         r = _run(["systemctl", "hibernate" if hibernate else "suspend"])
         if r is not None and r.returncode != 0:

@@ -216,3 +216,12 @@ def test_end_to_end_schedule_and_cancel(live_server, dry_run):  # noqa: F811
         assert any("cancelado" in k for k in kinds) and any("reinício" in k for k in kinds)
     finally:
         runner.stop()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="API do Windows")
+def test_windows_shutdown_privilege_real():
+    """Regressão: no Windows 64 bits o handle do processo era truncado e a suspensão falhava com
+    'Não foi possível abrir o token do processo'. Habilitar o privilégio não desliga nada."""
+    from einstein_agent.power import _enable_shutdown_privilege
+
+    _enable_shutdown_privilege()  # não pode lançar PowerError

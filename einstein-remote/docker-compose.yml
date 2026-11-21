@@ -9,7 +9,7 @@
 services:
   server:
     build: .
-    image: einstein-remote:1.0.0
+    image: einstein-remote:1.0.1
     restart: unless-stopped
     environment:
       EINSTEIN_COOKIE_SECURE: "1"

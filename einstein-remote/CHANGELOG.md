@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.0.1] — 2026-11-21
+### Corrigido
+- **Suspender e hibernar pelo painel falhavam no Windows 64 bits** com "Não foi possível abrir o token do
+  processo": o identificador do processo era truncado ao chamar a API do Windows. Teste no Windows real (CI).
+- `scripts/gen-cert.sh` não funcionava no Git Bash do Windows.
+
+### Adicionado
+- `scripts/setup-windows-server.ps1`: o PC Windows vira servidor com um comando — Tailscale (acesso pelo 4G),
+  certificado HTTPS, firewall restrito, início automático com o PC (religa se cair) e renovação do certificado.
+
 ## [1.0.0] — 2026-11-20
 Primeira versão final.
 

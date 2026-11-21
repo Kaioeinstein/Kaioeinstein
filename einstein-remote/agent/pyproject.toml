@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "einstein-remote-agent"
-version = "1.0.0"
+version = "1.0.1"
 description = "EINSTEIN REMOTE AGENT - agente de monitoramento e controle remoto autorizado para Windows"
 requires-python = ">=3.10"
 dependencies = ["psutil>=5.9", "websockets>=13", "pystray>=0.19", "pillow>=10", "mss>=9", "python-xlib>=0.33; sys_platform == \"linux\""]
