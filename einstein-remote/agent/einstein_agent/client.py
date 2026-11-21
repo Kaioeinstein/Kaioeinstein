@@ -353,13 +353,14 @@ class Agent:
 
         try:
             prep = await asyncio.to_thread(updater.prepare, params, self.cfg)
+            await asyncio.to_thread(updater.start_helper, prep)  # só segue se o ajudante confirmou que está rodando
         except updater.UpdateRefused as exc:
-            log.info("Atualização não aplicada: %s", exc)
+            log.warning("Atualização não aplicada: %s", exc)
             return False, None, str(exc)
         except Exception as exc:
-            log.exception("Falha ao baixar a atualização")
+            log.exception("Falha na atualização")
             return False, None, f"{type(exc).__name__}: {exc}"
-        updater.launch_helper(prep)
+        updater.exit_for_update(prep["version"])
         return True, {"version": prep["version"], "restarting": True}, None
 
     async def _maint_command(self, action: str, params: dict):

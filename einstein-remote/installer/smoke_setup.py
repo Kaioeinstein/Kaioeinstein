@@ -154,6 +154,14 @@ def main() -> int:
             time.sleep(1)
         log_text = helper_log.read_text("utf-8-sig", errors="replace") if helper_log.exists() else "(sem update-helper.log)"
         print(log_text)
+        if not (APP_DIR / "update-marker.txt").exists():  # diagnóstico: o que o agente e o ajudante disseram
+            agent_log = helper_log.with_name("agent.log")
+            if agent_log.exists():
+                print("--- agent.log (fim)\n" + "\n".join(agent_log.read_text("utf-8", errors="replace").splitlines()[-25:]))
+            for c in Path(tempfile.gettempdir()).glob("einstein-agent-update-*/helper-console.log"):
+                print(f"--- {c}\n" + c.read_text("utf-8", errors="replace")[-2000:])
+            notes = [n["message"] for n in call(base, "/api/notifications", token=token) if n["kind"] == "update"]
+            print("--- notificações de atualização:", notes)
         check((APP_DIR / "update-marker.txt").exists(), "ajudante trocou os arquivos do programa")
         try:
             first.wait(timeout=30)

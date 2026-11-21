@@ -30,10 +30,10 @@ class UpdateRefused(Exception):
 
 
 HELPER = r"""
-param([int]$AgentPid, [string]$Src, [string]$Dst, [string]$Version, [string]$Work, [string]$Log)
+param([int]$AgentPid, [string]$Src, [string]$Dst, [string]$Version, [string]$Work, [string]$Log, [string]$Nonce)
 $ErrorActionPreference = "Continue"
 function L($m) { try { Add-Content -Path $Log -Value "$(Get-Date -Format s) $m" -Encoding UTF8 } catch {} }
-L "ajudante iniciado: v$Version, agente PID $AgentPid, destino '$Dst'"
+L "ajudante iniciado ($Nonce): v$Version, agente PID $AgentPid, destino '$Dst'"
 try { Wait-Process -Id $AgentPid -Timeout 60 -ErrorAction Stop; L "agente fechou" } catch { L "aguardando agente: $($_.Exception.Message)" }
 Stop-Process -Id $AgentPid -Force -ErrorAction SilentlyContinue
 # qualquer outra instância rodando desta pasta (CLI, bandeja reaberta) segura os arquivos
@@ -164,8 +164,13 @@ def prepare(params: dict, cfg: AgentConfig) -> dict:
     return {"src": src, "dst": dst, "version": version, "work": work}
 
 
-def launch_helper(prep: dict) -> None:
+def start_helper(prep: dict, wait: float = 15.0) -> None:
+    """Inicia o ajudante e só retorna depois que ele confirma, no update-helper.log, que está rodando.
+
+    Sem essa confirmação o agente NÃO fecha (no uso real ele fechava, o ajudante não rodava e o PC ficava offline).
+    """
     import json
+    import secrets
     import time
 
     from .logs import logs_dir
@@ -175,17 +180,45 @@ def launch_helper(prep: dict) -> None:
     script.write_text(HELPER, encoding="utf-8-sig")
     helper_log = logs_dir() / "update-helper.log"
     helper_log.parent.mkdir(parents=True, exist_ok=True)
-    _marker().write_text(json.dumps({"version": prep["version"], "ts": time.time()}), encoding="utf-8")
-    # CREATE_NO_WINDOW (console oculto: o PowerShell precisa de um) | NEW_PROCESS_GROUP | BREAKAWAY_FROM_JOB
+    nonce = secrets.token_hex(8)
+    console = prep["work"] / "helper-console.log"
+    # CREATE_NO_WINDOW (console oculto) | NEW_PROCESS_GROUP | BREAKAWAY_FROM_JOB (sobrevive ao agente)
     flags = 0x08000000 | 0x00000200 | 0x01000000
-    args = [system_exe("WindowsPowerShell\\v1.0\\powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
+    args = [system_exe("WindowsPowerShell\\v1.0\\powershell"), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
             "-File", str(script), "-AgentPid", str(os.getpid()),
             "-Src", str(prep["src"]), "-Dst", str(prep["dst"]), "-Version", prep["version"], "-Work", str(prep["work"]),
-            "-Log", str(helper_log)]
+            "-Log", str(helper_log), "-Nonce", nonce]
+    with open(console, "wb") as out:
+        # executável sem console (bandeja): std* explícitos — herdar alças inválidas pode impedir o filho de iniciar
+        kw = dict(stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT, close_fds=True)
+        try:
+            proc = subprocess.Popen(args, creationflags=flags, **kw)  # nosec B603 - argumentos fixos
+        except OSError as exc:
+            log.info("Ajudante sem BREAKAWAY_FROM_JOB (%s)", exc)
+            proc = subprocess.Popen(args, creationflags=flags & ~0x01000000, **kw)  # nosec B603
+    end = time.time() + wait
+    while time.time() < end:
+        try:
+            if nonce in helper_log.read_text(encoding="utf-8-sig", errors="replace"):
+                _marker().write_text(json.dumps({"version": prep["version"], "ts": time.time()}), encoding="utf-8")
+                return
+        except OSError:
+            pass
+        if proc.poll() is not None:
+            break
+        time.sleep(0.3)
+    if proc.poll() is None:
+        proc.kill()
+    detail = ""
     try:
-        subprocess.Popen(args, creationflags=flags, close_fds=True)  # nosec B603 - argumentos fixos
+        detail = console.read_text(encoding="utf-8", errors="replace").strip()[-300:]
     except OSError:
-        subprocess.Popen(args, creationflags=flags & ~0x01000000, close_fds=True)  # nosec B603
-    log.warning("Atualizando o agente para %s: fechando para o ajudante trocar os arquivos.", prep["version"])
+        pass
+    raise UpdateRefused(f"O ajudante de atualização não iniciou (código {proc.returncode}); o agente continua na versão atual."
+                        + (f" Detalhe: {detail}" if detail else ""))
+
+
+def exit_for_update(version: str) -> None:
+    log.warning("Atualizando o agente para %s: fechando para o ajudante trocar os arquivos.", version)
     # sai depois que o resultado chegou ao servidor; o ajudante reabre o ícone da bandeja
     threading.Timer(2.0, os._exit, args=(0,)).start()
