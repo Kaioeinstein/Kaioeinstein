@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.3.3] — 2026-11-21
+### Adicionado
+- **Diagnóstico…** no menu da bandeja: um clique gera um relatório (agente, conexão com o servidor, servidor deste
+  PC, atualização, Tailscale e registros) e abre no Bloco de Notas — sem PowerShell.
+- **Reparar o servidor deste PC** no menu da bandeja (quando o PC é o servidor): pede permissão ao Windows e roda a
+  verificação/religamento completo numa janela.
+
 ## [1.3.2] — 2026-11-21
 ### Corrigido
 - **Atualização automática do agente funcionando** (verificada no Windows real com o agente instalado: o ajudante

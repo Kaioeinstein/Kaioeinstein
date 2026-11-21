@@ -209,6 +209,12 @@ Stop-Server
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal `
     -Description "Servidor do painel EINSTEIN REMOTE (HTTPS porta $Port). Remover: scripts\setup-windows-server.ps1 -Uninstall" -Force | Out-Null
 Ok "tarefa '$TaskName' (inicia com o PC, mesmo antes de entrar no Windows; reinicia se cair)"
+# o agente da bandeja usa isto em "Reparar o servidor deste PC" / "Diagnóstico"
+try {
+    $hintDir = Join-Path $env:LOCALAPPDATA "EinsteinRemote"
+    New-Item -ItemType Directory -Force -Path $hintDir | Out-Null
+    Set-Content -Path (Join-Path $hintDir "server-dir.txt") -Value $Root -Encoding UTF8
+} catch {}
 
 if (-not $SkipTailscale) {
     $renew = Join-Path $Root "scripts\renew-cert.ps1"

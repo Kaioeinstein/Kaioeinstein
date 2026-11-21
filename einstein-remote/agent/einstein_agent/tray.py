@@ -224,6 +224,8 @@ class TrayApp:
               checked=lambda item: self.cfg.allow_maintenance, visible=paired),
             M("Pastas liberadas para o painel…", self.open_folders, visible=paired),
             SEP,
+            M("Diagnóstico…", self.diagnose),
+            M("Reparar o servidor deste PC", self.repair_server, visible=lambda item: self._has_local_server()),
             M("Ver registro (log)", self.open_log),
             M("Abrir pasta de configuração", self.open_config),
             M("Desvincular este computador…", self.unpair, visible=paired),
@@ -300,6 +302,40 @@ class TrayApp:
             self._refresh_menu()
 
         threading.Thread(target=run, name="pair-window", daemon=True).start()
+
+    def diagnose(self, *_):
+        """Relatório completo num clique (abre no Bloco de Notas): basta mandar um print dele."""
+        from . import diagnostics
+
+        def run():
+            try:
+                open_path(diagnostics.save_report())
+            except Exception:
+                log.exception("Falha ao gerar o diagnóstico")
+                self.notify("Não foi possível gerar o diagnóstico (veja o registro).")
+
+        self.notify("Gerando o diagnóstico… abre em alguns segundos.")
+        threading.Thread(target=run, name="diagnostico", daemon=True).start()
+
+    def _has_local_server(self) -> bool:
+        if getattr(self, "_local_server", None) is None:
+            from . import diagnostics
+
+            try:
+                self._local_server = diagnostics.server_dir() is not None
+            except Exception:
+                self._local_server = False
+        return self._local_server
+
+    def repair_server(self, *_):
+        from . import diagnostics
+
+        if not dialogs.confirm(TITLE, "Reparar o servidor deste PC?\n\nO Windows vai pedir permissão de administrador. "
+                                      "Abre uma janela que confere tudo (Tailscale, certificado, firewall, início automático) "
+                                      "e religa o servidor. Leva cerca de 1 minuto."):
+            return
+        if not diagnostics.repair_server():
+            dialogs.info(TITLE, "Não encontrei o servidor neste PC (ou a permissão foi negada).")
 
     def open_log(self, *_):
         open_path(log_file())
