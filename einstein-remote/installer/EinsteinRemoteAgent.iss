@@ -66,6 +66,10 @@ Name: "desktopicon"; Description: "{cm:TaskDesktop}"; GroupDescription: "{cm:Gro
 [Files]
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[UninstallDelete]
+; a pasta do programa é só dele: remove também arquivos trazidos pela atualização automática (fora da lista do instalador)
+Type: filesandordirs; Name: "{app}"
+
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#TrayExe}"; Comment: "Agente na bandeja: status, pausar, permissões"
 Name: "{autoprograms}\EINSTEIN REMOTE\Desinstalar {#AppName}"; Filename: "{uninstallexe}"

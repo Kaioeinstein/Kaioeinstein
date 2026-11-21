@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.3.2] — 2026-11-21
+### Corrigido
+- **Atualização automática do agente funcionando** (verificada no Windows real com o agente instalado: o ajudante
+  troca os arquivos, reabre o agente e ele volta online, sem ciclo). Causas encontradas pelo CI: erro de sintaxe no
+  script do ajudante (`"$i:"`) e o Windows encerrando o ajudante junto com o agente — agora ele é criado fora do
+  grupo do agente (WMI). O agente só fecha depois que o ajudante confirma que está rodando; se não confirmar, a
+  atualização é cancelada e o agente continua online, com o motivo no painel.
+- Desinstalar remove também arquivos trazidos pela atualização automática.
+- CPU por processo nunca passa de 100% no Monitor.
+
 ## [1.3.1] — 2026-11-21
 ### Corrigido
 - **PC ficava offline em ciclo após a atualização automática do agente** (encontrado no uso real): o agente fechava

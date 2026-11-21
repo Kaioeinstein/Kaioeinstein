@@ -97,3 +97,9 @@ def test_panel_files_always_revalidated(client):
         r = client.get(path)
         assert r.headers.get("cache-control") == "no-cache", path
     assert client.get("/api/health").headers["cache-control"] == "no-store"
+
+
+def test_uninstaller_removes_files_added_by_self_update():
+    """A atualização automática traz arquivos que o instalador não conhece; desinstalar remove a pasta toda."""
+    iss = (ROOT / "installer" / "EinsteinRemoteAgent.iss").read_text(encoding="utf-8-sig")
+    assert re.search(r'\[UninstallDelete\]\s*(;[^\n]*\n\s*)*Type: filesandordirs; Name: "\{app\}"', iss)
