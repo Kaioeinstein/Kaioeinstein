@@ -64,6 +64,7 @@ class Updates:
         self.check_error: str | None = None
         self.tokens: dict[str, float] = {}
         self.refused: set[tuple[str, str]] = set()  # (dispositivo, versão) que já recusou/falhou: não insiste
+        self.attempted: set[tuple[str, str]] = set()  # (dispositivo, versão) que já recebeu o pedido de atualizar
         self._lock = threading.Lock()
 
     # -- versão publicada ----------------------------------------------------
@@ -143,8 +144,19 @@ async def offer_agent_update(hub, conn, version: str | None) -> None:
     pkg = upd.package()
     if not pkg or not version or not newer(pkg["version"], version):
         return
-    if not hub.prefs["auto_update_agents"] or (conn.device_id, pkg["version"]) in upd.refused:
+    key = (conn.device_id, pkg["version"])
+    if not hub.prefs["auto_update_agents"] or key in upd.refused:
         return
+    if key in upd.attempted:
+        # já mandou atualizar e o agente voltou com a versão antiga: a troca não pegou — NÃO insiste
+        # (antes: o agente fechava a cada conexão e o PC ficava offline)
+        upd.refused.add(key)
+        hub.db.audit("agent.update_not_applied", device_id=conn.device_id, detail={"from": version, "to": pkg["version"]})
+        await hub.notify("warning", "update", f"{conn.name or 'Computador'}: o agente continua na versão {version} — a atualização "
+                                              f"automática para {pkg['version']} não foi aplicada. Instale o agente novo manualmente "
+                                              "(o registro update-helper.log, na pasta de logs do agente, mostra o motivo).", conn.device_id)
+        return
+    upd.attempted.add(key)
     token = upd.issue_token()
     params = {"version": pkg["version"], "sha256": pkg["sha256"], "size": pkg.get("size"),
               "url": f"/api/agent/package?token={token}"}

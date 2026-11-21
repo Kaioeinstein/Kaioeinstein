@@ -30,25 +30,60 @@ class UpdateRefused(Exception):
 
 
 HELPER = r"""
-param([int]$AgentPid, [string]$Src, [string]$Dst, [string]$Version, [string]$Work)
-$ErrorActionPreference = "SilentlyContinue"
-Wait-Process -Id $AgentPid -Timeout 60
-Stop-Process -Id $AgentPid -Force
-Get-Process EinsteinRemoteAgent, einstein-agent | Where-Object { $_.Path -like "$Dst*" } | Stop-Process -Force
-Start-Sleep -Seconds 1
-for ($i = 0; $i -lt 5; $i++) {
-    robocopy $Src $Dst /E /R:3 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-    if ($LASTEXITCODE -lt 8) { break }
-    Start-Sleep -Seconds 2
+param([int]$AgentPid, [string]$Src, [string]$Dst, [string]$Version, [string]$Work, [string]$Log)
+$ErrorActionPreference = "Continue"
+function L($m) { try { Add-Content -Path $Log -Value "$(Get-Date -Format s) $m" -Encoding UTF8 } catch {} }
+L "ajudante iniciado: v$Version, agente PID $AgentPid, destino '$Dst'"
+try { Wait-Process -Id $AgentPid -Timeout 60 -ErrorAction Stop; L "agente fechou" } catch { L "aguardando agente: $($_.Exception.Message)" }
+Stop-Process -Id $AgentPid -Force -ErrorAction SilentlyContinue
+# qualquer outra instância rodando desta pasta (CLI, bandeja reaberta) segura os arquivos
+Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($Dst, [StringComparison]::OrdinalIgnoreCase) } |
+    ForEach-Object { L "encerrando $($_.Name) (PID $($_.Id))"; Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Seconds 2
+$ok = $false
+for ($i = 1; $i -le 6; $i++) {
+    $out = robocopy $Src $Dst /E /R:2 /W:1 /NP /NJH /NJS /NDL
+    $code = $LASTEXITCODE
+    L "cópia tentativa $i: robocopy $code"
+    if ($code -lt 8) { $ok = $true; break }
+    L ($out | Select-Object -Last 8 | Out-String)
+    Start-Sleep -Seconds 3
 }
-$key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{EFAF17C3-F513-4AC6-BEF6-172EC2E25FAB}_is1"
-if (Test-Path $key) {
-    Set-ItemProperty $key DisplayVersion $Version
-    Set-ItemProperty $key DisplayName "EINSTEIN REMOTE AGENT"
+if ($ok) {
+    $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{EFAF17C3-F513-4AC6-BEF6-172EC2E25FAB}_is1"
+    if (Test-Path $key) { Set-ItemProperty $key DisplayVersion $Version -ErrorAction SilentlyContinue }
+    L "arquivos trocados para v$Version"
+} else {
+    L "ERRO: não foi possível trocar os arquivos; reabrindo a versão anterior"
 }
-Start-Process (Join-Path $Dst "EinsteinRemoteAgent.exe")
-if ($Work -like "*einstein-agent-update-*") { Remove-Item $Work -Recurse -Force }
+try { Start-Process -FilePath (Join-Path $Dst "EinsteinRemoteAgent.exe") -WorkingDirectory $Dst; L "agente reaberto" } catch { L "ERRO ao reabrir: $($_.Exception.Message)" }
+if ($Work -like "*einstein-agent-update-*") { Remove-Item $Work -Recurse -Force -ErrorAction SilentlyContinue }
 """
+
+
+def _marker() -> Path:
+    from .config import config_dir
+
+    return config_dir() / "update-attempt.json"
+
+
+def check_previous_attempt() -> None:
+    """Na inicialização: registra se a última atualização automática pegou (e libera nova tentativa)."""
+    import json
+
+    from . import __version__
+
+    m = _marker()
+    try:
+        data = json.loads(m.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if data.get("version") == __version__:
+        log.info("Agente atualizado para %s automaticamente.", __version__)
+        m.unlink(missing_ok=True)
+    else:
+        log.warning("A atualização automática para %s não foi aplicada (agente ainda em %s). Veja update-helper.log.",
+                    data.get("version"), __version__)
 
 
 def install_dir() -> Path | None:
@@ -113,6 +148,14 @@ def prepare(params: dict, cfg: AgentConfig) -> dict:
         raise UpdateRefused("Agente rodando pelo Python (desenvolvimento): atualize pelo código-fonte.")
     if version == __version__:
         raise UpdateRefused("Este agente já está na versão oferecida.")
+    import json
+
+    try:  # já tentou esta versão e voltou antigo: não fecha de novo (evita o ciclo que deixava o PC offline)
+        if json.loads(_marker().read_text(encoding="utf-8")).get("version") == version:
+            raise UpdateRefused(f"A atualização para {version} já foi tentada e não pegou — instale o agente novo manualmente "
+                                "(motivo em update-helper.log, na pasta de logs do agente).")
+    except (OSError, ValueError):
+        pass
     work = Path(tempfile.mkdtemp(prefix="einstein-agent-update-"))
     zip_path = work / "agent.zip"
     download(cfg, str(params.get("url", "")), str(params.get("sha256", "")), params.get("size"), zip_path)
@@ -122,14 +165,23 @@ def prepare(params: dict, cfg: AgentConfig) -> dict:
 
 
 def launch_helper(prep: dict) -> None:
+    import json
+    import time
+
+    from .logs import logs_dir
     from .power import system_exe
 
     script = prep["work"] / "update-helper.ps1"
     script.write_text(HELPER, encoding="utf-8-sig")
-    flags = 0x00000008 | 0x00000200 | 0x01000000  # DETACHED_PROCESS | NEW_PROCESS_GROUP | BREAKAWAY_FROM_JOB
+    helper_log = logs_dir() / "update-helper.log"
+    helper_log.parent.mkdir(parents=True, exist_ok=True)
+    _marker().write_text(json.dumps({"version": prep["version"], "ts": time.time()}), encoding="utf-8")
+    # CREATE_NO_WINDOW (console oculto: o PowerShell precisa de um) | NEW_PROCESS_GROUP | BREAKAWAY_FROM_JOB
+    flags = 0x08000000 | 0x00000200 | 0x01000000
     args = [system_exe("WindowsPowerShell\\v1.0\\powershell"), "-NoProfile", "-ExecutionPolicy", "Bypass",
-            "-WindowStyle", "Hidden", "-File", str(script), "-AgentPid", str(os.getpid()),
-            "-Src", str(prep["src"]), "-Dst", str(prep["dst"]), "-Version", prep["version"], "-Work", str(prep["work"])]
+            "-File", str(script), "-AgentPid", str(os.getpid()),
+            "-Src", str(prep["src"]), "-Dst", str(prep["dst"]), "-Version", prep["version"], "-Work", str(prep["work"]),
+            "-Log", str(helper_log)]
     try:
         subprocess.Popen(args, creationflags=flags, close_fds=True)  # nosec B603 - argumentos fixos
     except OSError:

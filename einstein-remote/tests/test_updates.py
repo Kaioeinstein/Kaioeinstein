@@ -179,3 +179,34 @@ def test_agent_refuses_outside_installed_windows():
 
     with pytest.raises(updater.UpdateRefused):
         updater.prepare({"version": "9.9.9"}, AgentConfig(server_url="http://x"))
+
+
+def test_offer_does_not_loop_when_update_not_applied(client, owner, tmp_path):
+    """Regressão (uso real): o agente aceitava, fechava, voltava na versão antiga e recebia o pedido de novo — em ciclo,
+    deixando o PC offline. Agora: um pedido por versão; se voltar antigo, avisa e não insiste."""
+    _package(tmp_path)
+    hub = client.app.state.hub
+    calls = []
+
+    async def ok_call(device_id, action, params, timeout=30):
+        calls.append(action)
+        return {"version": params["version"], "restarting": True}
+
+    hub.server_call = ok_call
+
+    class Conn:
+        device_id, name = "dev2", "PC"
+
+    async def scenario():
+        orig = asyncio.sleep
+        updates.asyncio.sleep = lambda s: orig(0)
+        try:
+            for _ in range(4):  # reconecta várias vezes ainda na versão antiga
+                await updates.offer_agent_update(hub, Conn, "1.2.0")
+        finally:
+            updates.asyncio.sleep = orig
+
+    asyncio.run(scenario())
+    assert calls == ["agent.update"]
+    notes = [n["message"] for n in client.get("/api/notifications", headers=owner[0]).json() if n["kind"] == "update"]
+    assert any("não foi aplicada" in n for n in notes)

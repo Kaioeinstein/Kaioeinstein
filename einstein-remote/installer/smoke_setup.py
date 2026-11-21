@@ -7,12 +7,16 @@ Etapas (sai com código != 0 se qualquer uma falhar):
      → arquivos, atalho no Menu Iniciar, entrada em Aplicativos e valor de início automático corretos
   2. o agente INSTALADO vincula a um servidor real e fica online pela bandeja
   3. atualização (reinstalar) com o agente aberto → o instalador o fecha, mantém o vínculo; volta online
-  4. desinstalação silenciosa com /PURGE → agente encerrado (servidor o vê offline) e nada fica para trás:
+  4. autoatualização: o servidor oferece um pacote novo; o agente INSTALADO baixa, confere o SHA-256, fecha,
+     o ajudante troca os arquivos e reabre o agente, que volta online — sem entrar em ciclo
+  5. desinstalação silenciosa com /PURGE → agente encerrado (servidor o vê offline) e nada fica para trás:
      programa, atalho, início automático, entrada em Aplicativos e configuração/credencial
 Somente Windows; altera o perfil do usuário atual (feito para o executor descartável do CI).
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import subprocess
@@ -126,16 +130,56 @@ def main() -> int:
         wait_state(base, token, "online", need_metrics=True)
         check(True, "online de novo após a atualização")
 
-        print("4. Desinstalação silenciosa com /PURGE")
+        print("4. Autoatualização do agente instalado (pacote oferecido pelo servidor)")
+        tray_procs[1].kill()
+        tray_procs[1].wait(timeout=30)
+        wait_state(base, token, "offline")
+        pkg_dir = tmp / "server" / "update" / "agent"
+        pkg_dir.mkdir(parents=True, exist_ok=True)
+        zpath = pkg_dir / "EinsteinRemoteAgent-9.9.9.zip"
+        import zipfile
+
+        with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in APP_DIR.rglob("*"):
+                if f.is_file() and not f.name.lower().startswith("unins"):
+                    z.write(f, f.relative_to(APP_DIR))
+            z.writestr("update-marker.txt", "pacote 9.9.9")  # prova de que os arquivos foram trocados
+        (pkg_dir / "package.json").write_text(json.dumps({
+            "version": "9.9.9", "file": zpath.name, "size": zpath.stat().st_size,
+            "sha256": hashlib.sha256(zpath.read_bytes()).hexdigest()}), encoding="utf-8")
+        helper_log = Path(os.environ["LOCALAPPDATA"]) / "EinsteinRemote" / "logs" / "update-helper.log"
+        first = subprocess.Popen([str(tray)])
+        end = time.time() + 180
+        while time.time() < end and not (APP_DIR / "update-marker.txt").exists():
+            time.sleep(1)
+        log_text = helper_log.read_text("utf-8-sig", errors="replace") if helper_log.exists() else "(sem update-helper.log)"
+        print(log_text)
+        check((APP_DIR / "update-marker.txt").exists(), "ajudante trocou os arquivos do programa")
+        try:
+            first.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            raise SystemExit("FALHA: o agente não fechou para ser atualizado") from None
+        check(True, "agente fechou sozinho para a troca")
+        wait_state(base, token, "online", timeout=90)
+        check("agente reaberto" in log_text or "agente reaberto" in helper_log.read_text("utf-8-sig", errors="replace"),
+              "ajudante reabriu o agente e ele voltou online")
+        time.sleep(20)  # o agente reaberto continua com a versão antiga do executável: não pode entrar em ciclo
+        devs = call(base, "/api/devices", token=token)
+        check(devs[0]["state"] == "online", "continua online (sem ciclo de atualização)")
+        starts = helper_log.read_text("utf-8-sig", errors="replace").count("ajudante iniciado")
+        check(starts == 1, f"um único pedido de atualização ({starts})")
+        notes = [n["message"] for n in call(base, "/api/notifications", token=token) if n["kind"] == "update"]
+        check(any("não foi aplicada" in n for n in notes), "servidor avisou que a versão não mudou e não insistiu")
+
+        print("5. Desinstalação silenciosa com /PURGE")
         uninstaller = APP_DIR / "unins000.exe"
         check(uninstaller.exists(), "desinstalador presente")
         subprocess.run([str(uninstaller), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/PURGE"], timeout=120)
         wait_gone([APP_DIR, CONFIG_DIR])  # o desinstalador continua a partir de uma cópia temporária
-        try:
-            tray_procs[1].wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            raise SystemExit("FALHA: o agente continuou rodando após a desinstalação") from None
+        # o agente reaberto pelo ajudante não é processo filho deste teste: confere pelo servidor e pela lista de processos
         wait_state(base, token, "offline")
+        running = subprocess.run(["tasklist", "/FI", "IMAGENAME eq EinsteinRemoteAgent.exe"], capture_output=True, text=True).stdout
+        check("EinsteinRemoteAgent.exe" not in running, "nenhum agente rodando após a desinstalação")
         check(True, "agente encerrado (servidor o vê offline)")
         check(not APP_DIR.exists(), "pasta do programa removida")
         check(not SHORTCUT.exists(), "atalho removido")

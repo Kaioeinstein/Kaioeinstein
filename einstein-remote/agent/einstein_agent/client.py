@@ -134,6 +134,12 @@ class Agent:
     async def run_forever(self) -> None:
         self._loop = asyncio.get_running_loop()
         try:
+            from . import updater
+
+            updater.check_previous_attempt()  # registra se a última atualização automática pegou
+        except Exception:
+            log.debug("Verificação da última atualização falhou", exc_info=True)
+        try:
             from . import files
 
             removed = await asyncio.to_thread(files.cleanup_partials)

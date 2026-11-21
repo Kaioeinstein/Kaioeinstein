@@ -2,6 +2,16 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.3.1] — 2026-11-21
+### Corrigido
+- **PC ficava offline em ciclo após a atualização automática do agente** (encontrado no uso real): o agente fechava
+  para ser trocado, voltava na versão antiga e o servidor pedia de novo a cada conexão. Agora o servidor faz um
+  único pedido por versão e, se o agente voltar antigo, avisa e não insiste; o agente também recusa repetir uma
+  tentativa que não pegou.
+- Ajudante de atualização: console oculto (o PowerShell sem console podia não rodar), espera o agente fechar,
+  encerra qualquer cópia aberta da pasta, confere a cópia (robocopy) e grava `update-helper.log` na pasta de logs.
+- CI: autoatualização real do agente instalado pelo instalador (baixa, confere SHA-256, troca, reabre, sem ciclo).
+
 ## [1.3.0] — 2026-11-21
 ### Adicionado
 - **Volume do PC** pelo painel (celular e computador): controle deslizante, − / + (10%) e silenciar, com o ícone
