@@ -227,10 +227,14 @@ def test_windows_shutdown_privilege_real():
     _enable_shutdown_privilege()  # não pode lançar PowerError
 
 
-def test_suspend_reports_done_and_cancel_clears_stale_state(dry_run):
+def test_suspend_reports_done_and_cancel_clears_stale_state(dry_run, monkeypatch):
     """Regressão (painel preso em 'Suspensão em andamento…'): o agente avisa ao terminar a suspensão
     e, sem nada pendente, o Cancelar manda o servidor descartar o aviso."""
+    from einstein_agent import power
     from einstein_agent.power import PowerController
+
+    # a máquina virtual do CI Windows não suspende: simula um PC que suspende (nada é executado: modo simulação)
+    monkeypatch.setattr(power, "capabilities", lambda: {"capabilities": {"sleep": True}, "reasons": {}})
 
     sent = []
 
