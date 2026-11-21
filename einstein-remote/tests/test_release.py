@@ -89,3 +89,11 @@ def test_proxy_headers_give_real_client_ip(tmp_path):
         blocked = c.post("/api/auth/login", json={"username": "kaio", "password": STRONG}, headers={**XHR, "X-Forwarded-For": "203.0.113.7"})
         other = c.post("/api/auth/login", json={"username": "kaio", "password": STRONG}, headers={**XHR, "X-Forwarded-For": "198.51.100.9"})
         assert blocked.status_code == 429 and other.status_code == 200
+
+
+def test_panel_files_always_revalidated(client):
+    """Após atualizar o servidor, o navegador não pode continuar mostrando o painel antigo."""
+    for path in ("/", "/js/app.js", "/css/app.css"):
+        r = client.get(path)
+        assert r.headers.get("cache-control") == "no-cache", path
+    assert client.get("/api/health").headers["cache-control"] == "no-store"

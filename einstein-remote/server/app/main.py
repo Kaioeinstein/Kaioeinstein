@@ -82,6 +82,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             response.headers["Strict-Transport-Security"] = "max-age=31536000"
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
+        elif "Cache-Control" not in response.headers:
+            # painel: o navegador sempre confere com o servidor (ETag) — após uma atualização, a versão nova
+            # aparece na hora, em vez de o Chrome continuar mostrando a antiga guardada
+            response.headers["Cache-Control"] = "no-cache"
         return response
 
     @app.get("/api/health")
