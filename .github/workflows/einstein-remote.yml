@@ -60,10 +60,10 @@ jobs:
         run: bash deploy/smoke_compose.sh
 
   windows-server:
-    name: Servidor no Windows (início automático)
+    name: Servidor no Windows (início automático e atualização)
     needs: tests
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: einstein-remote
@@ -75,7 +75,7 @@ jobs:
       - name: Certificado de teste
         shell: bash
         run: bash scripts/gen-cert.sh localhost 127.0.0.1
-      - name: setup-windows-server.ps1 — instalar, parar, religar, queda, remover (Windows PowerShell 5.1)
+      - name: setup-windows-server.ps1 — instalar, parar, religar, queda, atualizar, reverter, remover (Windows PowerShell 5.1)
         shell: powershell
         run: |
           $py = (Get-Command python).Source

@@ -32,6 +32,8 @@ from .push_api import PushDispatcher
 from .push_api import router as push_router
 from .webpush import Vapid
 from .security import RateLimiter
+from .updates import Updates
+from .updates import router as updates_router
 from .ws import router as ws_router
 
 CSP = (
@@ -43,6 +45,15 @@ CSP = (
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or load_settings()
 
+    async def notify_new_version(app: FastAPI) -> None:
+        """Verifica o GitHub a cada 30 min; avisa uma vez por versão nova."""
+        upd = app.state.hub.updates
+        await upd.check()
+        if upd.latest and upd.latest != app.state.notified_version and upd.status()["available"]:
+            app.state.notified_version = upd.latest
+            await app.state.hub.notify("info", "update", f"Nova versão {upd.latest} disponível (atual: {__version__}). "
+                                                         "Ajustes › Atualizações › Atualizar.")
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         async def housekeeping():
@@ -52,6 +63,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 app.state.hub.transfers.expire()
                 if int(time.time()) % 3600 < 5:
                     app.state.db.prune_metrics(time.time() - 30 * 24 * 3600)
+                await notify_new_version(app)
 
         task = asyncio.create_task(housekeeping())
         yield
@@ -68,6 +80,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.hub = Hub(db, settings, app.state.prefs)
     app.state.push = PushDispatcher(db, Vapid(settings.data_dir))
     app.state.hub.push = app.state.push
+    app.state.hub.updates = Updates(settings.data_dir)
+    app.state.notified_version = None
     app.state.limiter = RateLimiter(settings.max_login_failures, settings.lockout_seconds)
 
     @app.middleware("http")
@@ -98,6 +112,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(users_router)
     app.include_router(files_router)
     app.include_router(push_router)
+    app.include_router(updates_router)
     app.include_router(ws_router)
 
     @app.exception_handler(404)

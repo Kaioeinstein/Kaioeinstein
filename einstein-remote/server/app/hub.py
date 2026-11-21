@@ -343,6 +343,10 @@ class Hub:
         await self.broadcast(
             {"type": "device", "data": self.device_view(self.db.get_device_public(device["id"]))}, device["id"]
         )
+        if getattr(self, "updates", None) is not None:
+            from .updates import offer_agent_update
+
+            asyncio.create_task(offer_agent_update(self, conn, str(info.get("agent_version") or "")))
         if self.prefs["notify_device_online"]:
             await self.notify("info", "device_online", f"{device['name']} conectado", device["id"])
         return conn

@@ -648,3 +648,12 @@ body.enroll-only [data-page=settings] .grid.two > article:first-child { display:
 .op-start span { display: flex; flex-direction: column; min-width: 0; }
 .op-start small.muted { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 @media (max-width: 600px) { .op-grid { grid-template-columns: 1fr; } }
+
+/* ---------------------------------------------------------------- Atualizações */
+.upd-card { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.upd-row { display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+.upd-ver { display: flex; flex-direction: column; gap: 2px; }
+.upd-ver b { font-size: 22px; }
+.upd-actions { margin-left: auto; }
+#upd-text { margin: 0; }
+@media (max-width: 600px) { .upd-actions { margin-left: 0; width: 100%; } .upd-actions .btn { flex: 1; } }

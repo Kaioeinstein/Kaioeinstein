@@ -7,6 +7,7 @@ import { RemoteViewer } from "./remote.js";
 import { PowerCenter } from "./power.js";
 import { FileBrowser } from "./files.js";
 import { Optimizer } from "./optimize.js";
+import { UpdateCard } from "./updates.js";
 import { PushCard, TwoFactorCard } from "./security.js";
 
 // ----------------------------------------------------------------- utilidades
@@ -133,6 +134,7 @@ let remote = null;
 let power = null;
 let files = null;
 let optimizer = null;
+let updateCard = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -611,6 +613,8 @@ async function loadSettingsPage() {
   $("#alerts-ro").classList.toggle("hidden", canEdit);
   tfCard?.render();
   if (enrollOnly) return;
+  updateCard ??= new UpdateCard();
+  updateCard.render();
   if (API.currentUser.role === "owner") {
     loadUsers();
     API.api("/api/settings").then((s) => ($("#req-2fa").checked = !!s.require_2fa)).catch(() => {});

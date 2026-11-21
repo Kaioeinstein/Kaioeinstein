@@ -34,4 +34,5 @@ def owner(client):
 def isolated_agent_dirs(tmp_path, monkeypatch):
     """Config e log do agente sempre em pastas temporárias (nunca no perfil real)."""
     monkeypatch.setenv("EINSTEIN_AGENT_DIR", str(tmp_path / "agent"))
+    monkeypatch.setenv("EINSTEIN_UPDATE_CHECK", "0")  # nunca consulta o GitHub nos testes
     monkeypatch.setenv("EINSTEIN_AGENT_LOG_DIR", str(tmp_path / "agent-logs"))

@@ -324,6 +324,21 @@ class Agent:
             return False, None, f"{type(exc).__name__}: {exc}"
         return False, None, f"Ação '{action}' não suportada por este agente"
 
+    async def _update_command(self, params: dict):
+        """Pedido do servidor do dono: baixar, conferir (SHA-256) e trocar o agente pela versão nova."""
+        from . import updater
+
+        try:
+            prep = await asyncio.to_thread(updater.prepare, params, self.cfg)
+        except updater.UpdateRefused as exc:
+            log.info("Atualização não aplicada: %s", exc)
+            return False, None, str(exc)
+        except Exception as exc:
+            log.exception("Falha ao baixar a atualização")
+            return False, None, f"{type(exc).__name__}: {exc}"
+        updater.launch_helper(prep)
+        return True, {"version": prep["version"], "restarting": True}, None
+
     async def _maint_command(self, action: str, params: dict):
         m = maintenance
         try:
@@ -382,6 +397,8 @@ class Agent:
             ok, data, error = await self._power_command(action, params)
         elif action.startswith("files."):
             ok, data, error = await self._files_command(action, params)
+        elif action == "agent.update":
+            ok, data, error = await self._update_command(params)
         elif action.startswith(("maint.", "perf.")):
             ok, data, error = await self._maint_command(action, params)
         else:

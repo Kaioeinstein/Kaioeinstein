@@ -2,6 +2,20 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.2.0] — 2026-11-21
+### Adicionado
+- **Atualização automática.** Ajustes › **Atualizações** mostra a versão instalada e a publicada; o servidor
+  verifica o repositório do projeto a cada 30 min e avisa quando há versão nova. **Atualizar agora**
+  (proprietário, com confirmação): o servidor baixa a versão nova, guarda uma cópia da atual, troca os arquivos
+  (dados, chaves e certificados ficam), monta o novo agente e religa. **Se a versão nova não responder em 90 s,
+  a anterior volta sozinha.**
+- **Agentes se atualizam sozinhos**: ao conectar com versão antiga, o PC recebe o pacote do seu servidor (link de
+  uso único), confere tamanho e SHA-256, troca os arquivos e reabre o ícone da bandeja — vínculo e permissões
+  mantidos. Pode ser desligado em Ajustes › Atualizações.
+
+### Corrigido
+- Painel guardado pelo navegador depois de uma atualização (agora sempre revalidado).
+
 ## [1.1.0] — 2026-11-21
 ### Adicionado
 - **Otimizar** (nova página do painel, também no celular):

@@ -21,6 +21,7 @@ DEFAULTS: dict = {
     "notify_connection_failures": True,
     "notify_commands": False,
     "require_2fa": False,
+    "auto_update_agents": True,
 }
 
 
@@ -40,6 +41,7 @@ class SettingsUpdate(BaseModel):
     notify_connection_failures: bool | None = None
     notify_commands: bool | None = None
     require_2fa: bool | None = None
+    auto_update_agents: bool | None = None
 
 
 class Preferences:

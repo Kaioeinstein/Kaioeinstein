@@ -346,6 +346,21 @@
         <div id="enroll-banner" class="glass enroll-banner hidden" role="alert">
           <b>Verificação em duas etapas obrigatória.</b> O proprietário exige 2FA de todos os usuários. Ative abaixo para liberar o painel.
         </div>
+        <article class="glass upd-card hidden" id="upd-card">
+          <div class="card-head"><h3>Atualizações</h3><span class="pill on" id="upd-pill">—</span></div>
+          <div class="upd-row">
+            <div class="upd-ver"><small class="muted">Instalada</small><b id="upd-current">—</b></div>
+            <div class="upd-ver"><small class="muted">Publicada</small><b id="upd-latest">—</b></div>
+            <div class="row upd-actions">
+              <button class="btn ghost sm" id="upd-check" type="button">Verificar agora</button>
+              <button class="btn primary hidden" id="upd-start" type="button">Atualizar agora</button>
+            </div>
+          </div>
+          <p class="small" id="upd-text">—</p>
+          <label class="switch"><input type="checkbox" id="upd-agents" checked><i></i>
+            <span>Atualizar os agentes dos PCs automaticamente (o PC baixa do seu servidor, confere o SHA-256 e reabre sozinho)</span></label>
+          <p class="muted small" id="upd-agent-pkg"></p>
+        </article>
         <div class="grid two">
           <article class="glass">
             <div class="card-head"><h3>Limites de alerta</h3><small class="muted" id="alerts-ro">somente administradores podem alterar</small></div>
