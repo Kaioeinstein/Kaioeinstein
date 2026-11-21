@@ -72,7 +72,7 @@ class ProcessSampler:
             for p in procs:
                 try:
                     with p.oneshot():
-                        cpu = p.cpu_percent(None) / CPU_COUNT
+                        cpu = min(100.0, max(0.0, p.cpu_percent(None) / CPU_COUNT))  # a janela de medida pode passar de 100%
                         mem = p.memory_info()
                         name = p.name()
                         try:
