@@ -463,6 +463,33 @@
         </article>
       </section>
     </main>
+
+    <!-- ASSISTENTE EINSTEIN -->
+    <button id="ai-orb" class="ai-orb" type="button" aria-label="Assistente EINSTEIN" title="Assistente EINSTEIN">
+      <span class="ai-core"></span><span class="ai-ring"></span><span class="ai-ring r2"></span>
+    </button>
+    <section id="ai-panel" class="ai-panel glass hidden" aria-label="Assistente EINSTEIN">
+      <header class="ai-head">
+        <span class="ai-mini-orb" aria-hidden="true"></span>
+        <div><b>EINSTEIN</b><small class="muted">seu assistente · fale ou digite</small></div>
+        <button class="btn ghost sm" id="ai-voice" type="button" aria-label="Voz">🔊</button>
+        <button class="btn ghost sm" id="ai-close" type="button" aria-label="Fechar">✕</button>
+      </header>
+      <div id="ai-log" class="ai-log" aria-live="polite"></div>
+      <div id="ai-chips" class="ai-chips">
+        <button type="button" data-say="como está o PC?">📊 Status</button>
+        <button type="button" data-say="quais programas estão abertos?">🪟 Programas</button>
+        <button type="button" data-say="o que está pesando?">🔎 Pesando</button>
+        <button type="button" data-say="ligar modo jogo">🎮 Modo jogo</button>
+        <button type="button" data-say="limpar disco">🧹 Limpar</button>
+        <button type="button" data-say="ajuda">🧠 Ajuda</button>
+      </div>
+      <form id="ai-form" class="ai-form" autocomplete="off">
+        <button class="ai-mic" id="ai-mic" type="button" aria-label="Falar">🎙️</button>
+        <input id="ai-input" class="input" placeholder="Fale ou digite um comando…" maxlength="300" aria-label="Comando para o assistente">
+        <button class="btn primary" type="submit" aria-label="Enviar">➤</button>
+      </form>
+    </section>
   </div>
 
   <!-- MODAL DE CONFIRMAÇÃO -->

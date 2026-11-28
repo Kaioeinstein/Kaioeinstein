@@ -666,3 +666,48 @@ body.enroll-only [data-page=settings] .grid.two > article:first-child { display:
 .vol-mute.muted { border-color: var(--red); }
 .vol-value { min-width: 48px; text-align: right; font-size: 18px; }
 .volume-card.disabled .vol-row { opacity: .5; pointer-events: none; }
+
+/* ---------------------------------------------------------------- Assistente EINSTEIN */
+.ai-orb { position: fixed; right: 22px; bottom: 22px; width: 62px; height: 62px; border-radius: 50%; border: 0; padding: 0;
+  cursor: pointer; z-index: 60; background: radial-gradient(circle at 35% 30%, #ffffff 0 6%, #c4b5fd 14%, #8b5cf6 38%, #4c1d95 70%, #12051f 100%);
+  box-shadow: 0 0 22px rgba(168, 85, 247, .65), 0 0 60px rgba(34, 227, 160, .25), inset 0 0 18px rgba(255, 255, 255, .25);
+  animation: ai-breathe 3.2s ease-in-out infinite; }
+.ai-orb .ai-core { position: absolute; inset: 22px; border-radius: 50%; background: radial-gradient(circle, #eafff6, #22e3a0 60%, transparent 70%);
+  opacity: .85; filter: blur(.5px); }
+.ai-orb .ai-ring { position: absolute; inset: -6px; border-radius: 50%; border: 2px solid rgba(34, 227, 160, .55);
+  border-left-color: transparent; border-bottom-color: transparent; animation: ai-spin 4s linear infinite; }
+.ai-orb .ai-ring.r2 { inset: -12px; border-color: rgba(168, 85, 247, .45); border-right-color: transparent; border-top-color: transparent;
+  animation-duration: 6s; animation-direction: reverse; }
+.ai-orb.listening { animation: ai-listen .9s ease-in-out infinite; box-shadow: 0 0 30px rgba(34, 227, 160, .9), 0 0 80px rgba(34, 227, 160, .45); }
+.ai-orb.thinking .ai-ring { animation-duration: .8s; }
+.ai-orb.open { transform: scale(.9); }
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+@keyframes ai-breathe { 50% { box-shadow: 0 0 34px rgba(168, 85, 247, .85), 0 0 80px rgba(34, 227, 160, .35), inset 0 0 18px rgba(255, 255, 255, .3); } }
+@keyframes ai-listen { 50% { transform: scale(1.08); } }
+.ai-panel { position: fixed; right: 22px; bottom: 98px; width: min(420px, calc(100vw - 32px)); height: min(620px, calc(100vh - 140px));
+  z-index: 61; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.ai-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.ai-head > div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.ai-head b { letter-spacing: .12em; background: linear-gradient(90deg, #c4b5fd, var(--green)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ai-mini-orb { width: 26px; height: 26px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 30%, #fff 0 8%, #a78bfa 30%, #4c1d95 75%); box-shadow: 0 0 12px rgba(168, 85, 247, .7); }
+.ai-log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.ai-msg { max-width: 88%; padding: 10px 13px; border-radius: 14px; font-size: 14px; line-height: 1.45; white-space: normal; word-wrap: break-word; }
+.ai-msg.bot { align-self: flex-start; background: rgba(168, 85, 247, .14); border: 1px solid rgba(168, 85, 247, .3); border-top-left-radius: 4px; }
+.ai-msg.me { align-self: flex-end; background: rgba(34, 227, 160, .14); border: 1px solid rgba(34, 227, 160, .3); border-top-right-radius: 4px; }
+.ai-chips { display: flex; gap: 6px; padding: 0 12px 8px; overflow-x: auto; scrollbar-width: none; }
+.ai-chips button { flex: none; border: 1px solid var(--border); background: rgba(255, 255, 255, .04); color: var(--text);
+  border-radius: 20px; padding: 6px 11px; font-size: 12.5px; cursor: pointer; }
+.ai-chips button:hover { border-color: var(--purple); }
+.ai-form { display: flex; gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--border); align-items: center; }
+.ai-form .input { flex: 1; min-width: 0; }
+.ai-mic { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--border); background: rgba(255, 255, 255, .05);
+  font-size: 19px; cursor: pointer; }
+.ai-mic.on { background: rgba(34, 227, 160, .25); border-color: var(--green); animation: ai-listen .9s ease-in-out infinite; }
+@media (max-width: 900px) {
+  .ai-orb { right: 16px; bottom: 96px; width: 54px; height: 54px; }
+  .ai-orb .ai-core { inset: 19px; }
+  .ai-panel { right: 16px; left: 16px; width: auto; bottom: 160px; height: min(560px, calc(100vh - 220px)); }
+}
+/* assistente aberto: avisos vão para o topo e não cobrem a caixa de digitar */
+body.ai-open .toasts { top: 16px; bottom: auto; }

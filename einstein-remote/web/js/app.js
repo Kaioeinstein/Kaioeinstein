@@ -9,6 +9,7 @@ import { FileBrowser } from "./files.js";
 import { Optimizer } from "./optimize.js";
 import { UpdateCard } from "./updates.js";
 import { VolumeCard } from "./volume.js";
+import { Assistant } from "./assistant.js";
 import { PushCard, TwoFactorCard } from "./security.js";
 
 // ----------------------------------------------------------------- utilidades
@@ -137,6 +138,7 @@ let files = null;
 let optimizer = null;
 let updateCard = null;
 let volume = null;
+let assistant = null;
 const ROLE_NAMES = { owner: "Proprietário", admin: "Administrador", viewer: "Observador" };
 
 function go(view) {
@@ -179,6 +181,10 @@ async function startApp() {
   if (enrollOnly) { state.live?.close(); go("settings"); return; }
   files ??= new FileBrowser({ device: () => state.devices.get(state.selected), devices: () => [...state.devices.values()], live: () => state.live });
   optimizer ??= new Optimizer({ device: () => state.devices.get(state.selected), live: () => state.live });
+  assistant ??= new Assistant({
+    device: () => state.devices.get(state.selected), live: () => state.live, go, user: () => API.currentUser,
+    openScreen: () => remote?.start(state.selected),
+  });
   volume ??= new VolumeCard({ device: () => state.devices.get(state.selected), live: () => state.live });
   power ??= new PowerCenter({ device: () => state.devices.get(state.selected), live: () => state.live });
   remote ??= new RemoteViewer({ live: () => state.live, device: (id) => state.devices.get(id) });

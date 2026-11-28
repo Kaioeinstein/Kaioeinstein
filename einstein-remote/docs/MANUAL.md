@@ -188,3 +188,11 @@ Menu **Otimizar** (computador e celular):
 - **Iniciam com o Windows:** **Mostrar** e desligue o que não precisa abrir sozinho. Itens "sistema" (instalados para
   todos os usuários) só mudam como administrador no próprio PC.
 - Para bloquear tudo isso pelo painel: bandeja do agente › desmarque **Permitir limpeza e otimização pelo painel**.
+
+## Assistente EINSTEIN (voz e texto)
+Toque no **orbe** no canto da tela. Fale (🎙️) ou digite. Exemplos: "como está o PC?", "volume 30", "silenciar",
+"quais programas estão abertos?", "o que está pesando?", "ligar modo jogo", "modo desempenho", "limpar disco",
+"bloquear o PC", "desligar em 10 minutos", "cancelar desligamento", "ver a tela", "abrir arquivos", "ajuda".
+- Ações que tiram o PC do ar ou apagam arquivos pedem confirmação: responda "sim" ou "não".
+- A voz usa o reconhecimento de fala do navegador (Chrome/Edge no PC e no Android; Safari no iPhone). Na primeira
+  vez, permita o microfone. O botão 🔊/🔇 liga ou desliga a resposta falada.

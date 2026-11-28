@@ -2,6 +2,15 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.4.0] — 2026-11-28
+### Adicionado
+- **Assistente EINSTEIN**: orbe no canto do painel (celular e computador). Fale 🎙️ ou digite; ele responde com
+  emojis e em voz alta (voz do navegador, pt-BR — dá para silenciar) e executa comandos reais no PC: status, CPU,
+  memória, disco, temperatura, programas abertos, "o que está pesando", volume (definir/aumentar/diminuir/
+  silenciar), modo jogo, modo de energia, limpeza de disco, bloquear, desligar/reiniciar/suspender com prazo,
+  cancelar, ver a tela, abrir páginas, latência e hora. Desligar, reiniciar, suspender e limpar **sempre pedem
+  confirmação** ("sim"/"não"); as permissões do servidor e os bloqueios do dono no PC continuam valendo.
+
 ## [1.3.3] — 2026-11-21
 ### Adicionado
 - **Diagnóstico…** no menu da bandeja: um clique gera um relatório (agente, conexão com o servidor, servidor deste
