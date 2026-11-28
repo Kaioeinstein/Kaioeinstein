@@ -132,9 +132,10 @@ def _allowed() -> None:
         raise AudioError("O dono do computador bloqueou o controle de volume pelo painel (menu da bandeja).")
 
 
-def change(params: dict) -> dict:
-    """{"volume": 0..100} e/ou {"muted": bool} e/ou {"step": -100..100}."""
-    _allowed()
+def change(params: dict, local: bool = False) -> dict:
+    """{"volume": 0..100} e/ou {"muted": bool} e/ou {"step": -100..100}. local = dono no teclado do próprio PC."""
+    if not local:
+        _allowed()
     target = params.get("volume")
     step = params.get("step")
     muted = params.get("muted")
@@ -155,6 +156,8 @@ def change(params: dict) -> dict:
         target = status()["volume"] + int(step)
     if target is not None:
         _pactl("set-sink-volume", "@DEFAULT_SINK@", f"{max(0, min(100, int(target)))}%")
+        if muted is None and int(target) > 0:
+            _pactl("set-sink-mute", "@DEFAULT_SINK@", "0")  # como no Windows: mexer no volume tira do mudo
     if muted is not None:
         _pactl("set-sink-mute", "@DEFAULT_SINK@", "1" if muted else "0")
     return status()

@@ -2,6 +2,13 @@
 
 Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) · versões [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.5.0] — 2026-11-28
+### Adicionado
+- **Assistente EINSTEIN no terminal do PC**: um robozinho com rosto de tela que muda de expressão (feliz, pensando,
+  alerta, dormindo, legal…), respostas com emojis e faladas pela voz do Windows. Abre pelo menu da bandeja
+  (**Assistente no terminal 🤖**) ou com `einstein-agent assistente` (`--sem-voz` para só texto). Roda no próprio PC
+  com os mesmos comandos do assistente do painel; desligar, reiniciar, suspender e limpar pedem "sim".
+
 ## [1.4.0] — 2026-11-28
 ### Adicionado
 - **Assistente EINSTEIN**: orbe no canto do painel (celular e computador). Fale 🎙️ ou digite; ele responde com

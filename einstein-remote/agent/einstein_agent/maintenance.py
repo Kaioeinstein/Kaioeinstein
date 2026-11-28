@@ -152,8 +152,9 @@ def scan(now: float | None = None) -> dict:
     return {"categories": out, "disks": disks, "total": sum(c["bytes"] for c in out)}
 
 
-def clean(ids: list[str], now: float | None = None) -> dict:
-    _allowed()
+def clean(ids: list[str], now: float | None = None, local: bool = False) -> dict:
+    if not local:  # local = o dono no teclado do próprio PC (assistente no terminal)
+        _allowed()
     cats = categories()
     unknown = [i for i in ids if i not in cats]
     if unknown or not ids:
@@ -476,8 +477,9 @@ def perf_status(game: GameMode) -> dict:
             "plans": power_plans(), "game": game.state(), "windows": WINDOWS}
 
 
-def configure_game(params: dict) -> dict:
-    _allowed()
+def configure_game(params: dict, local: bool = False) -> dict:
+    if not local:
+        _allowed()
     from .config import AgentConfig
 
     cfg = AgentConfig.load()

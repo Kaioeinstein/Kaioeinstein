@@ -224,6 +224,7 @@ class TrayApp:
               checked=lambda item: self.cfg.allow_maintenance, visible=paired),
             M("Pastas liberadas para o painel…", self.open_folders, visible=paired),
             SEP,
+            M("Assistente no terminal 🤖", self.open_assistant),
             M("Diagnóstico…", self.diagnose),
             M("Reparar o servidor deste PC", self.repair_server, visible=lambda item: self._has_local_server()),
             M("Ver registro (log)", self.open_log),
@@ -302,6 +303,17 @@ class TrayApp:
             self._refresh_menu()
 
         threading.Thread(target=run, name="pair-window", daemon=True).start()
+
+    def open_assistant(self, *_):
+        """Abre o assistente EINSTEIN numa janela de terminal (o executável de linha de comando, ao lado deste)."""
+        exe = Path(sys.executable)
+        cli = exe.with_name("einstein-agent.exe")
+        args = [str(cli), "assistente"] if cli.exists() else [str(exe), "-m", "einstein_agent", "assistente"]
+        try:
+            subprocess.Popen(args, creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))  # nosec B603
+        except OSError:
+            log.exception("Não foi possível abrir o assistente no terminal")
+            self.notify("Não foi possível abrir o assistente (veja o registro).")
 
     def diagnose(self, *_):
         """Relatório completo num clique (abre no Bloco de Notas): basta mandar um print dele."""

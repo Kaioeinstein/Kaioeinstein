@@ -296,6 +296,9 @@ def main(argv: list[str] | None = None) -> int:
     sk.set_defaults(fn=cmd_remote_kill)
 
     sub.add_parser("diag", help="testa captura de tela, mouse/teclado e avisos neste PC").set_defaults(fn=cmd_diag)
+    sa2 = sub.add_parser("assistente", help="assistente EINSTEIN no terminal (robô com expressões, fala no Windows)")
+    sa2.add_argument("--sem-voz", action="store_true", help="só texto, sem falar as respostas")
+    sa2.set_defaults(fn=lambda a: __import__("einstein_agent.assistant_cli", fromlist=["run"]).run(voice=not a.sem_voz))
     sc = sub.add_parser("screen-access", help="acesso remoto à tela: allow | ask | deny")
     sc.add_argument("mode", choices=["allow", "ask", "deny"])
     sc.set_defaults(fn=cmd_screen_access)

@@ -196,3 +196,8 @@ Toque no **orbe** no canto da tela. Fale (🎙️) ou digite. Exemplos: "como es
 - Ações que tiram o PC do ar ou apagam arquivos pedem confirmação: responda "sim" ou "não".
 - A voz usa o reconhecimento de fala do navegador (Chrome/Edge no PC e no Android; Safari no iPhone). Na primeira
   vez, permita o microfone. O botão 🔊/🔇 liga ou desliga a resposta falada.
+
+### No terminal do PC
+Menu da bandeja › **Assistente no terminal 🤖** (ou `einstein-agent assistente`). Um robô com rosto de tela responde
+com emojis e fala as respostas (voz do Windows; digite `voz` para ligar/desligar, `sair` para fechar). Como quem
+digita é o dono, no próprio PC, os comandos valem mesmo com os bloqueios do painel ligados na bandeja.
